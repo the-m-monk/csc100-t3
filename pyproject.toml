@@ -1,0 +1,19 @@
+[project]
+name = "csc100-t3"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+authors = [
+    { name = "the-m-monk", email = "themmonk@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "raylib==6.0.1.0",
+]
+
+[project.scripts]
+csc100-t3 = "csc100_t3:main"
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"
