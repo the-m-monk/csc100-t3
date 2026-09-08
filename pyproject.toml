@@ -7,9 +7,7 @@ authors = [
     { name = "the-m-monk", email = "themmonk@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = [
-    "raylib==6.0.1.0",
-]
+dependencies = []
 
 [project.scripts]
 csc100-t3 = "csc100_t3:main"
