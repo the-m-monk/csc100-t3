@@ -7,7 +7,10 @@ authors = [
     { name = "the-m-monk", email = "themmonk@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "pyaudio==0.2.14; sys_platform == 'win32' and python_version == '3.14' and implementation_name == 'cpython' and platform_machine == 'AMD64'",
+    "unitree-webrtc-connect>=2.2.0",
+]
 
 [project.scripts]
 csc100-t3 = "csc100_t3:main"
@@ -15,3 +18,11 @@ csc100-t3 = "csc100_t3:main"
 [build-system]
 requires = ["uv_build>=0.12.10,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv.sources]
+pyaudio = [
+    {
+        url = "https://github.com/the-m-monk/csc100-t3/raw/refs/heads/mmonk-dev/whl_bins/PyAudio-0.2.14-cp314-cp314-win_amd64.whl",
+        marker = "sys_platform == 'win32' and python_version == '3.14' and implementation_name == 'cpython' and platform_machine == 'AMD64'"
+    },
+]
