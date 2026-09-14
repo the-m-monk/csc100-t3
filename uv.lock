@@ -320,6 +320,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "mujoco" },
+    { name = "numpy" },
     { name = "pyaudio", version = "0.2.14", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
     { name = "pyaudio", version = "0.2.14", source = { url = "https://github.com/the-m-monk/csc100-t3/raw/refs/heads/main/whl_bins/PyAudio-0.2.14-cp314-cp314-win_amd64.whl" }, marker = "python_full_version < '3.15' and implementation_name == 'cpython' and platform_machine == 'AMD64' and sys_platform == 'win32'" },
     { name = "unitree-webrtc-connect" },
@@ -328,6 +329,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "mujoco", specifier = ">=3.13.0" },
+    { name = "numpy", specifier = ">=2.5.3" },
     { name = "pyaudio", marker = "sys_platform != 'win32'", specifier = "==0.2.14" },
     { name = "pyaudio", marker = "python_full_version == '3.14.*' and implementation_name == 'cpython' and platform_machine == 'AMD64' and sys_platform == 'win32'", url = "https://github.com/the-m-monk/csc100-t3/raw/refs/heads/main/whl_bins/PyAudio-0.2.14-cp314-cp314-win_amd64.whl" },
     { name = "unitree-webrtc-connect", specifier = ">=2.2.0" },
