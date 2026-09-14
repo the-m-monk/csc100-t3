@@ -9,7 +9,9 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "pyaudio==0.2.14; sys_platform == 'win32' and python_version == '3.14' and implementation_name == 'cpython' and platform_machine == 'AMD64'",
+    "pyaudio==0.2.14; sys_platform != 'win32'",
     "unitree-webrtc-connect>=2.2.0",
+    "mujoco>=3.13.0",
 ]
 
 [project.scripts]
@@ -21,8 +23,5 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 pyaudio = [
-    {
-        url = "https://github.com/the-m-monk/csc100-t3/raw/refs/heads/main/whl_bins/PyAudio-0.2.14-cp314-cp314-win_amd64.whl",
-        marker = "sys_platform == 'win32' and python_version == '3.14' and implementation_name == 'cpython' and platform_machine == 'AMD64'"
-    },
+    { url = "https://github.com/the-m-monk/csc100-t3/raw/refs/heads/main/whl_bins/PyAudio-0.2.14-cp314-cp314-win_amd64.whl", marker = "sys_platform == 'win32' and python_version == '3.14' and implementation_name == 'cpython' and platform_machine == 'AMD64'" },
 ]
