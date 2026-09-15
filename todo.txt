@@ -19,3 +19,5 @@ policies:
 
 add go2 sim camera
 get real go2 camera dimensions
+
+top image of the chest poorly matches the side images in colour, not super important

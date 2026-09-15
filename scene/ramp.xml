@@ -1,7 +1,7 @@
 <mujoco model="ramp">
 
     <asset>
-        <mesh name="ramp_mesh" file="../assets/ramp.obj"/>
+        <mesh name="ramp_mesh" file="../assets/ramp.obj" scale="0.01 0.01 0.01"/>
     </asset>
 
     <worldbody>
