@@ -1,0 +1,24 @@
+<mujoco model="go2">
+
+    <asset>
+        <mesh
+            name="go2_mesh"
+            file="../assets/unitree-go2-robot-dog.obj"
+            scale="0.00701 0.00701 0.00701"
+        />
+    </asset>
+
+    <worldbody>
+        <body name="go2_body" pos="0 0 0.2">
+            <freejoint name="go2_joint"/>
+
+            <geom
+                name="go2_body_mesh"
+                type="mesh"
+                mesh="go2_mesh"
+                rgba="0.6 0.6 0.6 1"
+            />
+        </body>
+    </worldbody>
+
+</mujoco>

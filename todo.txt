@@ -1,7 +1,6 @@
 move emptybox code to a main simulator file, then make emptybox just load the main simulator code but with a dummy model
 
 scene:
-dog
 tunnel
 tamp
 block
@@ -12,3 +11,4 @@ make backdrop random noise/static so the model is incapable of "north-staring" b
     maybe train using a dataset/collection of panorama backdrops? (cities, buildings, streets, etc)
 
 get more tile photos to improve floor texture
+record tile size, tiles are currently huge

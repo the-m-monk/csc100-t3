@@ -1,4 +1,6 @@
-<mujoco model="">
+<mujoco model="sim">
+
+    <include file="robot.xml"/>
 
     <visual>
         <global elevation="-20"/>
