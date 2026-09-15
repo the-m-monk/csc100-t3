@@ -21,3 +21,12 @@ add go2 sim camera
 get real go2 camera dimensions
 
 top image of the chest poorly matches the side images in colour, not super important
+
+select a license for the repository's code and assets 
+probably bsd3 or agpl3 for code and some variant of CC for assets
+
+model ideas:
+    fb/camera input
+    cnn vision preprocessor
+    mlp
+    discrete action output
