@@ -1,6 +1,8 @@
 <mujoco model="sim">
 
     <include file="robot.xml"/>
+    <include file="chest.xml"/>
+    <include file="ramp.xml"/>
 
     <visual>
         <global elevation="-20"/>

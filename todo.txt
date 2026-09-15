@@ -2,8 +2,6 @@ move emptybox code to a main simulator file, then make emptybox just load the ma
 
 scene:
 tunnel
-tamp
-block
 finish square (green tile)
 
 make backdrop random noise/static so the model is incapable of "north-staring" background features,
@@ -12,3 +10,12 @@ make backdrop random noise/static so the model is incapable of "north-staring" b
 
 get more tile photos to improve floor texture
 record tile size, tiles are currently huge
+
+chest looks too small, remeasure with a tape measure
+ramp to dog ratio looks fine, ramp is maybe a bit large
+
+policies:
+    if distance between dog centre and chest centre < minimum safe distance: decrease fitness rating
+
+add go2 sim camera
+get real go2 camera dimensions

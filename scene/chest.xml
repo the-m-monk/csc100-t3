@@ -1,0 +1,115 @@
+<mujoco model="chest">
+
+    <asset>
+        <texture
+            name="chest_top_texture"
+            type="2d"
+            file="../assets/chest/top.png"
+            colorspace="sRGB"
+        />
+
+        <texture
+            name="chest_long_side_texture"
+            type="2d"
+            file="../assets/chest/long_side.png"
+            colorspace="linear"
+        />
+
+        <texture
+            name="chest_side_texture"
+            type="2d"
+            file="../assets/chest/side.png"
+            colorspace="linear"
+        />
+
+        <material
+            name="chest_top_material"
+            texture="chest_top_texture"
+            texrepeat="1 1"
+            specular="0"
+        />
+
+        <material
+            name="chest_long_side_material"
+            texture="chest_long_side_texture"
+            texrepeat="1 1"
+            rgba="1 1 1 1"
+            specular="0"
+            shininess="0"
+        />
+
+        <material
+            name="chest_side_material"
+            texture="chest_side_texture"
+            texrepeat="1 1"
+            rgba="1 1 1 1"
+            specular="0"
+            shininess="0"
+        />
+    </asset>
+
+    <worldbody>
+        <body name="chest" pos="0 0 0.2">
+
+            <geom
+                name="chest_body"
+                type="box"
+                size="0.35 0.225 0.20"
+                rgba="0.5 0.5 0.5 1"
+            />
+
+            <geom
+                name="chest_top"
+                type="box"
+                size="0.225 0.35 0.001"
+                pos="0 0 0.201"
+                euler="0 0 90"
+                material="chest_top_material"
+                contype="0"
+                conaffinity="0"
+            />
+
+            <geom
+                name="chest_long_side_1"
+                type="box"
+                size="0.35 0.001 0.20"
+                pos="0 0.226 0"
+                material="chest_long_side_material"
+                contype="0"
+                conaffinity="0"
+            />
+
+            <geom
+                name="chest_long_side_2"
+                type="box"
+                size="0.35 0.001 0.20"
+                pos="0 -0.226 0"
+                material="chest_long_side_material"
+                contype="0"
+                conaffinity="0"
+            />
+
+            <geom
+                name="chest_side_1"
+                type="box"
+                size="0.001 0.225 0.20"
+                pos="0.351 0 0"
+                material="chest_side_material"
+                contype="0"
+                conaffinity="0"
+            />
+
+            <geom
+                name="chest_side_2"
+                type="box"
+                size="0.001 0.225 0.20"
+                pos="-0.351 0 0"
+                material="chest_side_material"
+                contype="0"
+                conaffinity="0"
+            />
+
+        </body>
+    </worldbody>
+
+</mujoco>
