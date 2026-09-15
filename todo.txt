@@ -30,3 +30,11 @@ model ideas:
     cnn vision preprocessor
     mlp
     discrete action output
+
+for the cnn, assign (arbitrary) ouputs specific meaning, for example:
+    output 0 == tunnel distance
+    output 1 == tunnel direction
+    etc
+
+over the course of a simulation, measure these cnn ouputs, the dog state and other relative metrics
+add auxillary loss if the arbitrary cnn outputs did not correlate with their respective meaning (ie tunnel distance, etc)
