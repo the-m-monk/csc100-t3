@@ -13,6 +13,7 @@ dependencies = [
     "unitree-webrtc-connect>=2.2.0",
     "mujoco>=3.13.0",
     "numpy>=2.5.3",
+    "xmlformatter>=0.2.9",
 ]
 
 [project.scripts]

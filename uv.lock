@@ -324,6 +324,7 @@ dependencies = [
     { name = "pyaudio", version = "0.2.14", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'win32'" },
     { name = "pyaudio", version = "0.2.14", source = { url = "https://github.com/the-m-monk/csc100-t3/raw/refs/heads/main/whl_bins/PyAudio-0.2.14-cp314-cp314-win_amd64.whl" }, marker = "python_full_version < '3.15' and implementation_name == 'cpython' and platform_machine == 'AMD64' and sys_platform == 'win32'" },
     { name = "unitree-webrtc-connect" },
+    { name = "xmlformatter" },
 ]
 
 [package.metadata]
@@ -333,6 +334,7 @@ requires-dist = [
     { name = "pyaudio", marker = "sys_platform != 'win32'", specifier = "==0.2.14" },
     { name = "pyaudio", marker = "python_full_version == '3.14.*' and implementation_name == 'cpython' and platform_machine == 'AMD64' and sys_platform == 'win32'", url = "https://github.com/the-m-monk/csc100-t3/raw/refs/heads/main/whl_bins/PyAudio-0.2.14-cp314-cp314-win_amd64.whl" },
     { name = "unitree-webrtc-connect", specifier = ">=2.2.0" },
+    { name = "xmlformatter", specifier = ">=0.2.9" },
 ]
 
 [[package]]
@@ -937,6 +939,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c7/79/12135bdf8b9c9367b8701c2c19a14c913c120b882d50b014ca0d38083c2c/wsproto-1.3.2.tar.gz", hash = "sha256:b86885dcf294e15204919950f666e06ffc6c7c114ca900b060d6e16293528294", size = 50116, upload-time = "2025-11-20T18:18:01.871Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a4/f5/10b68b7b1544245097b2a1b8238f66f2fc6dcaeb24ba5d917f52bd2eed4f/wsproto-1.3.2-py3-none-any.whl", hash = "sha256:61eea322cdf56e8cc904bd3ad7573359a242ba65688716b0710a5eb12beab584", size = 24405, upload-time = "2025-11-20T18:18:00.454Z" },
+]
+
+[[package]]
+name = "xmlformatter"
+version = "0.2.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8e/3c/c82fe32478256a1d6cfae4770eda5e4da629e56f7d5a2baace308819c910/xmlformatter-0.2.9.tar.gz", hash = "sha256:22266ce398950d7848df66d5edc1bee57ead6d1b2404184c335ac4d0892d2760", size = 20467, upload-time = "2026-05-06T16:46:15.987Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/a6/e5eb2f8c443b3d59e70bef0603130a39dc4d10fa7416f08d275f1ccd07fb/xmlformatter-0.2.9-py3-none-any.whl", hash = "sha256:78b9121f95c745cf4e8edfe672c1911b48b67ce27a3d55a405b78892901bb8d1", size = 11880, upload-time = "2026-05-06T16:46:14.61Z" },
 ]
 
 [[package]]

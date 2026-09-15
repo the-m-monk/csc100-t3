@@ -1,20 +1,12 @@
 <mujoco model="ramp">
 
     <asset>
-        <mesh
-            name="ramp_mesh"
-            file="../assets/ramp.obj"
-        />
+        <mesh name="ramp_mesh" file="../assets/ramp.obj"/>
     </asset>
 
     <worldbody>
         <body name="ramp" pos="1.10 -0.225 0">
-            <geom
-                name="ramp_body"
-                type="mesh"
-                mesh="ramp_mesh"
-                rgba="0.45 0.45 0.45 1"
-            />
+            <geom name="ramp_body" type="mesh" mesh="ramp_mesh" rgba="0.45 0.45 0.45 1"/>
         </body>
     </worldbody>
 
