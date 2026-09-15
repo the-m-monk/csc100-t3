@@ -38,3 +38,11 @@ for the cnn, assign (arbitrary) ouputs specific meaning, for example:
 
 over the course of a simulation, measure these cnn ouputs, the dog state and other relative metrics
 add auxillary loss if the arbitrary cnn outputs did not correlate with their respective meaning (ie tunnel distance, etc)
+
+using and simulating the go2 imu could make the model and project massively simpler and more reliable
+
+unitree_webrtc_connect also appears to have some "local odometry" stuffs, only reliable enough for short distances but still very useful
+
+add "post-obstacle" scan function, after clearing obstacle (block, ramp, tunnel) using previously mentioned odometry,
+    do a 90 degree swing to the left and right, measuring the cnn's output regarding the visbility/detection of the next obstacle
+    once swing is complete, orientate the go2 in position of the next obstacle based on the cnn's readings.
