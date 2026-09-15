@@ -1,0 +1,14 @@
+move emptybox code to a main simulator file, then make emptybox just load the main simulator code but with a dummy model
+
+scene:
+dog
+tunnel
+tamp
+block
+finish square (green tile)
+
+make backdrop random noise/static so the model is incapable of "north-staring" background features,
+    although this might cause object recognition hallucinations in "ordered" backdrops due to lack of randomness
+    maybe train using a dataset/collection of panorama backdrops? (cities, buildings, streets, etc)
+
+get more tile photos to improve floor texture

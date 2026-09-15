@@ -1,0 +1,42 @@
+<mujoco model="">
+
+    <visual>
+        <global elevation="-20"/>
+    </visual>
+
+    <asset>
+        <texture
+            name="skybox"
+            type="skybox"
+            builtin="gradient"
+            rgb1="0.3 0.6 0.9"
+            rgb2="0.7 0.85 1.0"
+            width="256"
+            height="1536"
+        />
+
+        <texture name="tile_repeating" type="2d" file="../assets/tile.png" colorspace="linear"/>
+        <material
+            name="tile_material"
+            texture="tile_repeating"
+            texuniform="true"
+            texrepeat="1 0.521135"
+            specular="0"
+        />
+    </asset>
+
+    <worldbody>
+        <light
+            name="sun"
+            type="directional"
+            pos="0 0 10"
+            dir="-0.3 -0.4 -1"
+            ambient="0.05 0.05 0.05"
+            diffuse="0.7 0.7 0.7"
+            specular="0.1 0.1 0.1"
+            castshadow="false"
+        />
+        <geom type="plane" size="50 50 0.1" material="tile_material"/>
+    </worldbody>
+
+</mujoco>
