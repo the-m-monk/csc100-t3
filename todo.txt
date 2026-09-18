@@ -1,5 +1,7 @@
 add go2 sim camera
 
+add input in the form of next obstacle/target
+
 move emptybox code to a main simulator file, then make emptybox just load the main simulator code but with a dummy model
 
 policies:
