@@ -4,7 +4,8 @@ move emptybox code to a main simulator file, then make emptybox just load the ma
 
 policies:
     if distance between dog centre and chest centre < minimum safe distance: decrease fitness rating
-    reward model if it visits all obstacles in order
+    reward model if it visits all obstacles in order:
+        draw line between obstacles, reward the closer it sticks to said line
 
 model ideas:
     fb/camera input
