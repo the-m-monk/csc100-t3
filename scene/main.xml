@@ -3,6 +3,7 @@
     <include file="robot.xml"/>
     <include file="chest.xml"/>
     <include file="ramp.xml"/>
+    <include file="tunnel.xml"/>
 
     <visual>
         <global elevation="-20"/>

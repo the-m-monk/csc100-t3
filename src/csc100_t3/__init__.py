@@ -13,8 +13,10 @@ def main():
     match args.command:
         case "emptybox":
             from csc100_t3.mjsim.emptybox import run
+
             run()
 
         case "sceneformat":
             from csc100_t3.sceneformat import run
+
             run()

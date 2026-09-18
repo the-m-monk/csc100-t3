@@ -6,6 +6,7 @@ import mujoco.viewer
 
 SCENE_PATH = Path(__file__).resolve().parents[3] / "scene" / "main.xml"
 
+
 def run():
     scene = mujoco.MjModel.from_xml_path(str(SCENE_PATH))
 

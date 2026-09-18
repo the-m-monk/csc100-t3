@@ -1,0 +1,13 @@
+<mujoco model="tunnel">
+
+    <asset>
+        <mesh name="tunnel_mesh" file="../assets/tunnel.obj" scale="0.01 0.01 0.01"/>
+    </asset>
+
+    <worldbody>
+        <body name="tunnel" pos="1.85 -0.31 0">
+            <geom name="tunnel_body" type="mesh" mesh="tunnel_mesh" rgba="0.45 0.45 0.45 1"/>
+        </body>
+    </worldbody>
+
+</mujoco>
