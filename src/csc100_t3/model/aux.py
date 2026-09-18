@@ -8,22 +8,23 @@ VISION_COLOUR_CHANNELS = 3
 
 
 class DogModelCnnOutIdx(IntEnum):
-    TUNNEL_VIS = 0
-    TUNNEL_BEAR = 1
-    TUNNEL_DIS = 2
-    TUNNEL_ALIGN = 3
+    TUNNEL_VIS = 0  # 0..1
+    TUNNEL_BEAR = 1  # -1..1
+    TUNNEL_DIS = 2  # 0..1
+    TUNNEL_ALIGN = 3  # -1..1
 
-    RAMP_VIS = 4
-    RAMP_BEAR = 5
-    RAMP_DIS = 6
-    RAMP_ALIGN = 7
+    RAMP_VIS = 4  # 0..1
+    RAMP_BEAR = 5  # -1..1
+    RAMP_DIS = 6  # 0..1
+    RAMP_ALIGN = 7  # -1..1
 
-    BLOCK_VIS = 8
-    BLOCK_BEAR = 9
-    BLOCK_DIS = 10
+    BLOCK_VIS = 8  # 0..1
+    BLOCK_BEAR = 9  # -1..1
+    BLOCK_DIS = 10  # 0..1
 
-    TILE_VIZ = 11
-    TILE_BEAR = 12
+    TILE_VIZ = 11  # 0..1
+    TILE_BEAR = 12  # -1..1
+    TILE_DIS = 13  # 0..1
 
 
 VISION_OUT_LEN = len(DogModelCnnOutIdx)
