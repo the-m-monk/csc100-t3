@@ -10,7 +10,8 @@ class DogModelAction(Enum):
     RIGHT = 4
     TUNNEL = 5
     RAMP = 6
-    FINISHED = 7
+    BLOCK_FINISH = 7 #get model to call this after navigating the block itself (to trigger next-obj scan)
+    FINISHED = 8
 
 
 FB_DIMENSIONS = (480, 640, 3)
