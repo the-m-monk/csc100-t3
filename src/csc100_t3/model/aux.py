@@ -1,0 +1,33 @@
+from enum import IntEnum
+
+VISION_WIDTH = 128
+VISION_HEIGHT = 128
+VISION_COLOUR_CHANNELS = 3
+
+
+class DogModelCnnOutIdx(IntEnum):
+    TUNNEL_VIS = 0
+    TUNNEL_BEAR = 1
+    TUNNEL_DIS = 2
+    TUNNEL_ALIGN = 3
+
+    RAMP_VIS = 4
+    RAMP_BEAR = 5
+    RAMP_DIS = 6
+    RAMP_ALIGN = 7
+
+    BLOCK_VIS = 8
+    BLOCK_BEAR = 9
+    BLOCK_DIS = 10
+
+    TILE_VIZ = 11
+    TILE_BEAR = 12
+
+
+VISION_OUT_LEN = len(DogModelCnnOutIdx)
+
+VISION_CONV_CHANNELS = (16, 24, 32, 48)
+VISION_KERNEL_SIZES = (5, 3, 3, 3)
+VISION_STRIDES = (2, 2, 2, 2)
+VISION_PADDINGS = (2, 1, 1, 1)
+VISION_HIDDEN_SIZE = 128

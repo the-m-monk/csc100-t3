@@ -7,6 +7,7 @@ def main():
 
     sub.add_parser("emptybox")
     sub.add_parser("sceneformat")
+    sub.add_parser("model_import_test")
 
     args = parser.parse_args()
 
@@ -20,3 +21,6 @@ def main():
             from csc100_t3.sceneformat import run
 
             run()
+
+        case "model_import_test":
+            from csc100_t3.model import DogModel
