@@ -5,7 +5,7 @@
     </asset>
 
     <worldbody>
-        <body name="go2_body" pos="0 0 0.2">
+        <body name="go2_body" pos="0 0 0">
             <freejoint name="go2_joint"/>
 
             <geom name="go2_body_mesh" type="mesh" mesh="go2_mesh" rgba="0.6 0.6 0.6 1"/>

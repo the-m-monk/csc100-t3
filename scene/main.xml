@@ -6,6 +6,8 @@
     <include file="tunnel.xml"/>
     <include file="finish_tile.xml"/>
 
+    <option gravity="0 0 0"/>
+
     <visual>
         <global elevation="-20"/>
     </visual>
