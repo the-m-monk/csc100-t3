@@ -31,7 +31,7 @@ class DogActionHead(nn.Module):
             num_classes=len(aux.DogModelTarget),
         ).float()
 
-        if vision.shape != aux.VISION_OUT_LEN:
+        if vision.shape != (aux.VISION_OUT_LEN,):
             raise ValueError(
                 f"vision must have shape ({aux.VISION_OUT_LEN},), "
                 f"got {tuple(vision.shape)}"
