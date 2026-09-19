@@ -16,12 +16,13 @@ FINISH_REWARD_RADIUS = 1.0
 LOOKED_AROUND = 0.1
 APPROACH_DISTANCE = 0.5
 APPROACH_REWARD_SCALE = 4.0
+BAD_SPECIAL_ACTION = 5
 
 NUM_EPISODES = 1000
 MIN_EPSILON = 0.05
 EPSILON_DECAY = 0.995
 TARGET_UPDATE_INTERVAL = 10
-SAVE_INTERVAL = 100
+SAVE_INTERVAL = 10
 
 
 @dataclass
@@ -104,6 +105,9 @@ def calculate_reward(
             1.0 - d / FINISH_REWARD_RADIUS,
         )
 
+        if state.target != aux.DogModelTarget.TILE:
+            reward -= BAD_SPECIAL_ACTION
+
     # looked somewhere new
     idx = yaw_to_look_idx(sim_mov_r, next_state.dog_pos.yaw)
 
@@ -111,9 +115,13 @@ def calculate_reward(
         looked[idx] = True
         reward += LOOKED_AROUND
 
-    # punish if finished an target is not tile
-    # punish if ramped when target is not ramp
-    # punish if tunelled when target is not tunelled
+    if action == aux.DogModelAction.TUNNEL:
+        if state.target != aux.DogModelAction.TUNNEL:
+            reward -= BAD_SPECIAL_ACTION
+
+    if action == aux.DogModelAction.RAMP:
+        if state.target != aux.DogModelAction.RAMP:
+            reward -= BAD_SPECIAL_ACTION
 
     # went towards target
     trigger_point = get_trigger_point(

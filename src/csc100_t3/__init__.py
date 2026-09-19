@@ -25,6 +25,9 @@ def main():
     train_new = sub.add_parser("train_new")
     train_new.add_argument("--path", type=empty_dir, required=True)
 
+    sim_run_model = sub.add_parser("sim_run_model")
+    sim_run_model.add_argument("--path", type=Path, required=True)
+
     args = parser.parse_args()
 
     match args.command:
@@ -45,3 +48,8 @@ def main():
             from csc100_t3.model import training
 
             training.run_new(args.path)
+
+        case "sim_run_model":
+            import csc100_t3.mjsim.run_model as run_model
+
+            run_model.run(args.path)
