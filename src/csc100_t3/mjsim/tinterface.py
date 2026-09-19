@@ -315,6 +315,11 @@ class TrainingSimulator:
 
         mujoco.mj_resetData(self.scene, self.data)
 
+        self.dog_pos = DogPos(
+            Vec2(self.DOG_START_COORD.x, self.DOG_START_COORD.y),
+            0,
+        )
+
         self.reset_course()
 
         reset_course_watchdog = self.RESET_COURSE_WATCHDOG_INIT
