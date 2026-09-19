@@ -39,8 +39,8 @@ class CourseState:
     ramp_coord: Vec2
     ramp_yaw: float
 
-    block_coord: Vec2
-    block_yaw: float
+    chest_coord: Vec2
+    chest_yaw: float
 
     finish_tile_coord: Vec2
     finish_tile_yaw: float
@@ -228,7 +228,27 @@ class TrainingSimulator:
         )
 
     def is_keepout_respected(self):
-        return False
+        objs = [
+            (self.DOG_START_COORD, self.DOG_KEEPOUT),
+            (self.course_state.tunnel_coord, self.TUNNEL_KEEPOUT),
+            (self.course_state.ramp_coord, self.RAMP_KEEPOUT),
+            (self.course_state.chest_coord, self.CHEST_KEEPOUT),
+            (self.course_state.finish_tile_coord, self.FINISH_KEEPOUT),
+        ]
+
+        for i, a in enumerate(objs):
+            for b in objs[i + 1:]:
+
+                dx = a[0].x - b[0].x
+                dy = a[0].y - b[0].y
+
+                dsq = dx**2 + dy**2
+                mksq = (a[1] + b[1])**2
+
+                if mksq > dsq:
+                    return False
+
+        return True
 
     def reset(self, rseed: int) -> tuple[StepState, CourseState]:
         self.rseed = rseed
@@ -250,8 +270,6 @@ class TrainingSimulator:
 
             self.reset_course()
 
-        # set course state
-        # set dog pos
         # create step state
 
         """
