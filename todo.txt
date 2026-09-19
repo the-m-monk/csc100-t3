@@ -1,6 +1,10 @@
-add go2 sim camera
+the chest is sometimes called block (whoops!), replace all "block" references with "chest"
 
-add input in the form of next obstacle/target
+make sure that worst/most extreme tinterface reset variants cant a create course with collisions:
+    reroll obstacle generatio on collision
+    add collision bounding boxes to reset config
+
+add go2 sim camera
 
 move emptybox code to a main simulator file, then make emptybox just load the main simulator code but with a dummy model
 
@@ -9,17 +13,6 @@ policies:
     reward model if it visits all obstacles in order:
         draw line between obstacles, reward the closer it sticks to said line
 
-model ideas:
-    fb/camera input
-    cnn vision preprocessor
-    mlp
-    discrete action output
-
-for the cnn, assign (arbitrary) ouputs specific meaning, for example:
-    output 0 == tunnel distance
-    output 1 == tunnel direction
-    etc
-
 over the course of a simulation, measure these cnn ouputs, the dog state and other relative metrics
 add auxillary loss if the arbitrary cnn outputs did not correlate with their respective meaning (ie tunnel distance, etc)
 
@@ -27,6 +20,7 @@ add "post-obstacle" scan function, after clearing obstacle (block, ramp, tunnel)
     do a 90 degree swing to the left and right, measuring the cnn's output regarding the visbility/detection of the next obstacle
     once swing is complete, orientate the go2 in position of the next obstacle based on the cnn's readings.
 
+model camera might be rotated/incorrect rotation, dump images from sim to test
 
 todo after model proof of concept:
 
