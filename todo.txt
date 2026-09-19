@@ -51,3 +51,8 @@ chest looks too small, remeasure with a tape measure
 ramp to dog ratio looks fine, ramp is maybe a bit large
 
 unitree_webrtc_connect also appears to have some "local odometry" stuffs, only reliable enough for short distances but still very useful
+
+
+
+CLARIFICATION STUFFS:
+do we actually need to come close to the chest or just avoid it, assuming we just have to avoid it as it will be placed in the way of the green square (probably)

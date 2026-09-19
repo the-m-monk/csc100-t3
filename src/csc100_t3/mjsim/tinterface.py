@@ -22,8 +22,6 @@ class StepState:
     remaining_steps: int
     # done == (max steps reached or reached finish tile), sucess == (reached finish tile and !(max steps reached))
     done: bool
-    sucess: bool
-
 
 @dataclass
 class Vec2:
@@ -124,7 +122,7 @@ class TrainingSimulator:
         self.rseed: int = 0
         self.RESET_COURSE_WATCHDOG_INIT = 100
         self.MAX_STEPS = 500
-        self.step_state = StepState(self.DOG_START_COORD, np.array([]), aux.DogModelTarget.TUNNEL, 0, False, False)
+        self.step_state = StepState(self.DOG_START_COORD, np.array([]), aux.DogModelTarget.TUNNEL, 0, False)
 
     def place_relative(
         self,
@@ -285,12 +283,40 @@ class TrainingSimulator:
             aux.DogModelTarget.TUNNEL,
             self.MAX_STEPS,
             False,
-            False,
         )
 
         return (self.step_state, self.course_state)
 
-    def step(self, cnn: vision.DogVision, action: aux.DogModelAction) -> StepState:
-        # do action, return state post action
-        # if action is obstacle finish, do obstacle, run spin, and locate next obstacle
-        ...
+    def step(self, action: aux.DogModelAction) -> StepState:
+        if self.step_state.remaining_steps > 0:
+            self.step_state.remaining_steps -= 1
+
+        if self.step_state.done:
+            return self.step_state
+
+        match action:
+            case aux.DogModelAction.FORWARD:
+                # move forward with variance
+                ...
+            case aux.DogModelAction.BACKWARD:
+                # move backward with variance
+                ...
+            case aux.DogModelAction.LEFT:
+                # move left with variance
+                ...
+            case aux.DogModelAction.RIGHT:
+                # move right with variance
+                ...
+            case aux.DogModelAction.TUNNEL:
+                # go2 pos = tunnel centre + keepout + 0.1, go2 yaw = tunnel yaw
+                ...
+            case aux.DogModelAction.RAMP:
+                # go2 pos = ramp centre + keepout + 0.1, go2 yaw = ramp yaw
+                ...
+            case aux.DogModelAction.FINISHED:
+                self.step_state.remaining_steps = 0
+                self.step_state.done = True
+                return self.step_state
+
+        
+
