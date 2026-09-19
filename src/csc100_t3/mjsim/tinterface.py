@@ -281,7 +281,7 @@ class TrainingSimulator:
 
         self.step_state = StepState(
             self.dog_pos,
-            np.ndarray(self.cam_renderer.render()),
+            self.cam_renderer.render(),
             aux.DogModelTarget.TUNNEL,
             self.MAX_STEPS,
             False,
