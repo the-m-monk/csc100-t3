@@ -1,29 +1,28 @@
 import time
-from pathlib import Path
+import random
 
 import mujoco
 import mujoco.viewer
 
-SCENE_PATH = Path(__file__).resolve().parents[3] / "scene" / "main.xml"
-
+import csc100_t3.mjsim.tinterface as ti
 
 def run():
-    scene = mujoco.MjModel.from_xml_path(str(SCENE_PATH))
+    x = ti.TrainingSimulator()
 
-    state = mujoco.MjData(scene)
+    x.reset(random.randint(0,1_000_000))
 
     with mujoco.viewer.launch_passive(
-        scene,
-        state,
+        x.scene,
+        x.data,
         show_left_ui=False,
         show_right_ui=False,
     ) as viewer:
         with viewer.lock():
-            mujoco.mjv_defaultFreeCamera(scene, viewer.cam)
+            mujoco.mjv_defaultFreeCamera(x.scene, viewer.cam)
 
         while viewer.is_running():
-            mujoco.mj_step(scene, state)
+            mujoco.mj_step(x.scene, x.data)
 
             viewer.sync()
 
-            time.sleep(scene.opt.timestep)
+            time.sleep(x.scene.opt.timestep)

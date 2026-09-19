@@ -8,8 +8,6 @@ make sure that worst/most extreme tinterface reset variants cant a create course
 
 add go2 sim camera
 
-move emptybox code to a main simulator file, then make emptybox just load the main simulator code but with a dummy model
-
 policies:
     if distance between dog centre and chest centre < minimum safe distance: decrease fitness rating
     reward model if it visits all obstacles in order:
