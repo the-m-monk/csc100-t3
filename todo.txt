@@ -29,6 +29,10 @@ model may interpret irl grass as the fiish tile, make sure to:
 
 todo after model proof of concept:
 
+calibrate/model movement variance based on irl testing
+calibrate object variance
+calibrate object size
+
 select a license for the repository's code and assets 
 probably bsd3 or agpl3 for code and some variant of CC for assets
 

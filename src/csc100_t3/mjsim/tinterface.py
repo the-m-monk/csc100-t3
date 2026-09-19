@@ -20,8 +20,8 @@ class StepState:
     fb: np.ndarray
     target: aux.DogModelTarget
     remaining_steps: int
-    # done == (max steps reached or reached finish tile), sucess == (reached finish tile and !(max steps reached))
     done: bool
+
 
 @dataclass
 class Vec2:
@@ -115,14 +115,23 @@ class TrainingSimulator:
         }
 
         # movement
-
-        # forward/backward variance
-        # left/right variance
+        # https://github.com/Yaocheng-yan/Unitree-go2-Navi/blob/main/技术文档.md
+        self.MOV_FB = 0.25  # not framebuffer, forward and back
+        self.MOV_R = math.radians(15)
 
         self.rseed: int = 0
         self.RESET_COURSE_WATCHDOG_INIT = 100
         self.MAX_STEPS = 500
-        self.step_state = StepState(self.DOG_START_COORD, np.array([]), aux.DogModelTarget.TUNNEL, 0, False)
+        self.step_state = StepState(
+            DogPos(self.DOG_START_COORD, 0),
+            np.array([]),
+            aux.DogModelTarget.TUNNEL,
+            0,
+            False,
+        )
+
+        self.TUNNEL_LENGTH = 1.3
+        self.RAMP_LENGTH = 1.2
 
     def place_relative(
         self,
@@ -237,22 +246,72 @@ class TrainingSimulator:
         ]
 
         for i, a in enumerate(objs):
-            for b in objs[i + 1:]:
-
+            for b in objs[i + 1 :]:
                 dx = a[0].x - b[0].x
                 dy = a[0].y - b[0].y
 
                 dsq = dx**2 + dy**2
-                mksq = (a[1] + b[1])**2
+                mksq = (a[1] + b[1]) ** 2
 
                 if mksq > dsq:
                     return False
 
         return True
 
+    # relative
+    def move_go2(self, d: Vec2, y: float):
+        go2_joint = self.scene.joint("go2_joint")
+        go2_qadr = self.scene.jnt_qposadr[go2_joint.id]
+
+        w, x, qy, z = self.data.qpos[go2_qadr + 3 : go2_qadr + 7]
+
+        yaw = math.atan2(
+            2.0 * (w * z + x * qy),
+            1.0 - 2.0 * (qy * qy + z * z),
+        )
+
+        dx = d.x * math.cos(yaw) - d.y * math.sin(yaw)
+        dy = d.x * math.sin(yaw) + d.y * math.cos(yaw)
+
+        self.data.qpos[go2_qadr + 0] += dx
+        self.data.qpos[go2_qadr + 1] += dy
+
+        yaw += y
+
+        self.data.qpos[go2_qadr + 3 : go2_qadr + 7] = [
+            math.cos(yaw / 2),
+            0,
+            0,
+            math.sin(yaw / 2),
+        ]
+
+        self.step_state.dog_pos.coord.x += dx
+        self.step_state.dog_pos.coord.y += dy
+        self.step_state.dog_pos.yaw = yaw
+
+    # absolute
+    def set_go2_pos(self, d: Vec2, y: float):
+        go2_joint = self.scene.joint("go2_joint")
+        go2_qadr = self.scene.jnt_qposadr[go2_joint.id]
+
+        self.data.qpos[go2_qadr + 0] = d.x
+        self.data.qpos[go2_qadr + 1] = d.y
+
+        self.data.qpos[go2_qadr + 3 : go2_qadr + 7] = [
+            math.cos(y / 2),
+            0,
+            0,
+            math.sin(y / 2),
+        ]
+
+        self.step_state.dog_pos.coord.x = d.x
+        self.step_state.dog_pos.coord.y = d.y
+        self.step_state.dog_pos.yaw = y
+
     def reset(self, rseed: int) -> tuple[StepState, CourseState]:
         self.rseed = rseed
         random.seed(self.rseed)
+        np.random.seed(self.rseed)
 
         mujoco.mj_resetData(self.scene, self.data)
 
@@ -290,33 +349,58 @@ class TrainingSimulator:
     def step(self, action: aux.DogModelAction) -> StepState:
         if self.step_state.remaining_steps > 0:
             self.step_state.remaining_steps -= 1
+        else:
+            self.step_state.done = True
 
         if self.step_state.done:
             return self.step_state
 
         match action:
             case aux.DogModelAction.FORWARD:
-                # move forward with variance
-                ...
+                self.move_go2(Vec2(self.MOV_FB, 0), 0)
             case aux.DogModelAction.BACKWARD:
-                # move backward with variance
-                ...
+                self.move_go2(Vec2(-1 * self.MOV_FB, 0), 0)
             case aux.DogModelAction.LEFT:
-                # move left with variance
-                ...
+                self.move_go2(Vec2(0, 0), -1 * self.MOV_R)
             case aux.DogModelAction.RIGHT:
-                # move right with variance
-                ...
+                self.move_go2(Vec2(0, 0), self.MOV_R)
             case aux.DogModelAction.TUNNEL:
-                # go2 pos = tunnel centre + keepout + 0.1, go2 yaw = tunnel yaw
-                ...
+                self.set_go2_pos(
+                    Vec2(
+                        self.course_state.tunnel_coord.x
+                        + math.cos(self.course_state.tunnel_yaw)
+                        * (self.TUNNEL_LENGTH / 2 + 0.1),
+                        self.course_state.tunnel_coord.y
+                        + math.sin(self.course_state.tunnel_yaw)
+                        * (self.TUNNEL_LENGTH / 2 + 0.1),
+                    ),
+                    self.course_state.tunnel_yaw,
+                )
+                self.step_state.target = aux.DogModelTarget.RAMP
             case aux.DogModelAction.RAMP:
-                # go2 pos = ramp centre + keepout + 0.1, go2 yaw = ramp yaw
-                ...
+                self.set_go2_pos(
+                    Vec2(
+                        self.course_state.ramp_coord.x
+                        + math.cos(self.course_state.ramp_yaw)
+                        * (self.RAMP_LENGTH / 2 + 0.1),
+                        self.course_state.ramp_coord.y
+                        + math.sin(self.course_state.ramp_yaw)
+                        * (self.RAMP_LENGTH / 2 + 0.1),
+                    ),
+                    self.course_state.ramp_yaw,
+                )
+                self.step_state.target = aux.DogModelTarget.TILE
             case aux.DogModelAction.FINISHED:
                 self.step_state.remaining_steps = 0
                 self.step_state.done = True
-                return self.step_state
 
-        
+        mujoco.mj_step(self.scene, self.data)
 
+        self.cam_renderer.update_scene(
+            self.data,
+            camera="go2_camera",
+        )
+
+        self.step_state.fb = self.cam_renderer.render()
+
+        return self.step_state

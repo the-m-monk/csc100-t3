@@ -6,10 +6,11 @@ import mujoco.viewer
 
 import csc100_t3.mjsim.tinterface as ti
 
+
 def run():
     x = ti.TrainingSimulator()
 
-    x.reset(random.randint(0,1_000_000))
+    x.reset(random.randint(0, 1_000_000))
 
     with mujoco.viewer.launch_passive(
         x.scene,
