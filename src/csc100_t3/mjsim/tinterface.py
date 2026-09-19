@@ -123,6 +123,8 @@ class TrainingSimulator:
 
         self.rseed: int = 0
         self.RESET_COURSE_WATCHDOG_INIT = 100
+        self.MAX_STEPS = 500
+        self.step_state = StepState(self.DOG_START_COORD, np.array([]), aux.DogModelTarget.TUNNEL, 0, False, False)
 
     def place_relative(
         self,
@@ -270,22 +272,23 @@ class TrainingSimulator:
 
             self.reset_course()
 
-        # create step state
+        mujoco.mj_step(self.scene, self.data)
 
-        """
-        mujoco.mj_step(scene, data)
-
-        renderer.update_scene(
-            data,
-            camera="dog_camera",
+        self.cam_renderer.update_scene(
+            self.data,
+            camera="go2_camera",
         )
 
-        fb = renderer.render()
-        """
+        self.step_state = StepState(
+            self.dog_pos,
+            np.ndarray(self.cam_renderer.render()),
+            aux.DogModelTarget.TUNNEL,
+            self.MAX_STEPS,
+            False,
+            False,
+        )
 
-        # reset course, create random variant, return intial framebuffer and target
-        # do intial swing
-        ...
+        return (self.step_state, self.course_state)
 
     def step(self, cnn: vision.DogVision, action: aux.DogModelAction) -> StepState:
         # do action, return state post action

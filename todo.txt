@@ -18,6 +18,7 @@ policies:
 over the course of a simulation, measure these cnn ouputs, the dog state and other relative metrics
 add auxillary loss if the arbitrary cnn outputs did not correlate with their respective meaning (ie tunnel distance, etc)
 
+postpone adding swing, model might figure this out on its own (ie turn until the cnn is confident it can see the desired target)
 add "post-obstacle" scan function, after clearing obstacle (block, ramp, tunnel) using imu,
     do a 90 degree swing to the left and right, measuring the cnn's output regarding the visbility/detection of the next obstacle
     once swing is complete, orientate the go2 in position of the next obstacle based on the cnn's readings.
