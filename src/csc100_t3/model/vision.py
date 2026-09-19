@@ -77,6 +77,7 @@ class DogVision(nn.Module):
         )
 
     def conv_output_size(
+        self,
         input_size,
         kernel_size,
         stride,
