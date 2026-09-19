@@ -1,5 +1,7 @@
 the chest is sometimes called block (whoops!), replace all "block" references with "chest"
 
+bug: course sometimes starts behind dog, might keep this though to teach it to look around when lost
+
 add dog start variance
 
 make sure that worst/most extreme tinterface reset variants cant a create course with collisions:

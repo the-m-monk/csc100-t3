@@ -1,8 +1,69 @@
 from pathlib import Path
+from dataclasses import dataclass
+import copy
+import random
+
+from torchrl.data import ReplayBuffer, ListStorage
+import torch
 
 import csc100_t3.mjsim.tinterface as ti
+from csc100_t3.model import aux
+import csc100_t3.model as model
+
+
+@dataclass
+class Transition:
+    state: ti.StepState
+    course: ti.CourseState
+    action: aux.DogModelAction
+    reward: float
+    next_state: ti.StepState
+
+
+def choose_action(
+    model: model.DogModel,
+    fb,
+    target,
+    epsilon: float,
+) -> aux.DogModelAction:
+    if random.random() < epsilon:
+        return random.choice(list(aux.DogModelAction))
+
+    with torch.no_grad():
+        q_values = model(fb, target)
+
+    index = q_values.argmax().item()
+
+    return list(aux.DogModelAction)[index]
+
+
+def calculate_reward(
+    state: ti.StepState,
+    next_state: ti.StepState,
+    course: ti.CourseState,
+    action: aux.DogModelAction,
+) -> float: ...
 
 
 def run_new(model_dir: Path):
-    x = ti.TrainingSimulator()
-    x.reset(0)
+    replay_buffer = ReplayBuffer(
+        storage=ListStorage(max_size=50_000),
+        batch_size=64,
+    )
+
+    online_model = model.DogModel()
+    target_model = copy.deepcopy(online_model)
+    target_model.eval()
+    target_model.requires_grad_(False)
+
+    optimiser = torch.optim.Adam(
+        online_model.parameters(),
+        lr=1e-4,
+    )
+
+    epsilon = 1.0
+    gamma = 0.99
+
+    sim = ti.TrainingSimulator()
+
+    state, course = sim.reset(0)

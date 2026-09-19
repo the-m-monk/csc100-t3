@@ -15,6 +15,7 @@ dependencies = [
     "numpy>=2.5.3",
     "xmlformatter>=0.2.9",
     "torch>=2.14.0",
+    "torchrl>=0.14.0",
 ]
 
 [project.scripts]
