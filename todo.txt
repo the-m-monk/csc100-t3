@@ -23,6 +23,10 @@ add "post-obstacle" scan function, after clearing obstacle (block, ramp, tunnel)
 
 model camera might be rotated/incorrect rotation, dump images from sim to test
 
+model may interpret irl grass as the fiish tile, make sure to:
+    get the exact irl colour of the finish tile
+    and also add grass to the simulator (including avoidance policy)
+
 todo after model proof of concept:
 
 select a license for the repository's code and assets 
