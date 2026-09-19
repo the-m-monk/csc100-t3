@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import os
 import math
+import random
 
 import numpy as np
 
@@ -111,7 +112,105 @@ class TrainingSimulator:
         # forward/backward variance
         # left/right variance
 
+        self.rseed: int = 0
+
+    def place_relative(
+        self,
+        prev_x: float,
+        prev_y: float,
+        prev_yaw: float,
+        current_name: str,
+        variance: dict,
+    ):
+        distance = random.uniform(
+            variance["dmin"],
+            variance["dmax"],
+        )
+
+        delta_yaw = random.uniform(
+            variance["ymin"],
+            variance["ymax"],
+        )
+
+        current_yaw = prev_yaw + delta_yaw
+
+        current_x = prev_x + math.cos(current_yaw) * distance
+        current_y = prev_y + math.sin(current_yaw) * distance
+
+        current = self.scene.body(current_name)
+
+        current.pos[:2] = [current_x, current_y]
+
+        current.quat[:] = [
+            math.cos(current_yaw / 2),
+            0,
+            0,
+            math.sin(current_yaw / 2),
+        ]
+
+        return current_x, current_y, current_yaw
+
     def reset(self, rseed: int) -> tuple[StepState, CourseState]:
+        self.rseed = rseed
+
+        mujoco.mj_resetData(self.scene, self.data)
+
+        # set obstacle position
+
+        # dog
+        go2_joint = self.scene.joint("go2_joint")
+        go2_qadr = self.scene.jnt_qposadr[go2_joint.id]
+
+        self.data.qpos[go2_qadr + 0] = self.DOG_START_COORD.x
+        self.data.qpos[go2_qadr + 1] = self.DOG_START_COORD.y
+        self.data.qpos[go2_qadr + 3 : go2_qadr + 7] = [
+            1,
+            0,
+            0,
+            0,
+        ]  # point north/forward
+
+        # tunnel
+        tunnel_x, tunnel_y, tunnel_yaw = self.place_relative(
+            0,
+            0,
+            0,
+            "tunnel",
+            self.START_TO_TUNNEL_VARIANCE,
+        )
+
+        # ramp
+        ramp_x, ramp_y, ramp_yaw = self.place_relative(
+            tunnel_x,
+            tunnel_y,
+            tunnel_yaw,
+            "ramp",
+            self.TUNNEL_TO_RAMP_VARIANCE,
+        )
+
+        # chest
+        chest_x, chest_y, chest_yaw = self.place_relative(
+            ramp_x,
+            ramp_y,
+            ramp_yaw,
+            "chest",
+            self.RAMP_TO_CHEST_VARIANCE,
+        )
+
+        # finish tile
+        finish_x, finish_y, finish_yaw = self.place_relative(
+            chest_x,
+            chest_y,
+            chest_yaw,
+            "finish",
+            self.CHEST_TO_FINISH_VARIANCE,
+        )
+
+        # check keepout violation
+        # set course state
+        # set dog pos
+        # create step state
+
         """
         mujoco.mj_step(scene, data)
 
@@ -122,12 +221,6 @@ class TrainingSimulator:
 
         fb = renderer.render()
         """
-
-        # set obstacle position
-        # check keepout violation
-        # set course state
-        # set dog pos
-        # create step state
 
         # reset course, create random variant, return intial framebuffer and target
         # do intial swing

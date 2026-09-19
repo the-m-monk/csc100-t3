@@ -1,5 +1,7 @@
 the chest is sometimes called block (whoops!), replace all "block" references with "chest"
 
+add dog start variance
+
 make sure that worst/most extreme tinterface reset variants cant a create course with collisions:
     reroll obstacle generatio on collision
     add collision bounding boxes to reset config
