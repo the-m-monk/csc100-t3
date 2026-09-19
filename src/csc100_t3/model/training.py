@@ -67,3 +67,34 @@ def run_new(model_dir: Path):
     sim = ti.TrainingSimulator()
 
     state, course = sim.reset(0)
+
+    while not state.done:
+        action = choose_action(
+            online_model,
+            state.fb,
+            state.target,
+            epsilon,
+        )
+    
+        old_state = copy.deepcopy(state)
+    
+        next_state = sim.step(action)
+    
+        reward = calculate_reward(
+            old_state,
+            next_state,
+            course,
+            action,
+        )
+    
+        replay_buffer.add(
+            Transition(
+                state=old_state,
+                course=copy.deepcopy(course),
+                action=action,
+                reward=reward,
+                next_state=copy.deepcopy(next_state),
+            )
+        )
+    
+        state = next_state
