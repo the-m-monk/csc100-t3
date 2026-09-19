@@ -10,7 +10,7 @@ class DogActionHead(nn.Module):
 
         self.mlp = nn.Sequential(
             nn.Linear(
-                len(aux.VISION_OUT_LEN) + len(aux.DogModelTarget),
+                aux.VISION_OUT_LEN + len(aux.DogModelTarget),
                 aux.ACTOR_HIDDEN_SIZE,
             ),
             nn.ReLU(),
