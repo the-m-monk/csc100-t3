@@ -13,7 +13,16 @@ import csc100_t3.model as model
 
 MAX_FINISH_REWARD = 20
 FINISH_REWARD_RADIUS = 1.0
-LOOKED_AROUND = 3
+LOOKED_AROUND = 0.1
+APPROACH_DISTANCE = 0.5
+APPROACH_REWARD_SCALE = 4.0
+
+NUM_EPISODES = 1000
+MIN_EPSILON = 0.05
+EPSILON_DECAY = 0.995
+TARGET_UPDATE_INTERVAL = 10
+SAVE_INTERVAL = 100
+
 
 @dataclass
 class Transition:
@@ -23,8 +32,10 @@ class Transition:
     reward: float
     next_state: ti.StepState
 
+
 def distance(a: ti.Vec2, b: ti.Vec2):
     return math.hypot(a.x - b.x, a.y - b.y)
+
 
 def choose_action(
     model: model.DogModel,
@@ -42,9 +53,37 @@ def choose_action(
 
     return list(aux.DogModelAction)[index]
 
+
 def yaw_to_look_idx(sim_mov_r, y):
     y = y % (2 * math.pi)
     return int(y / sim_mov_r) % int((2 * math.pi) / sim_mov_r)
+
+
+def get_trigger_point(
+    target: aux.DogModelTarget,
+    course: ti.CourseState,
+) -> ti.Vec2:
+    match target:
+        case aux.DogModelTarget.TUNNEL:
+            coord = course.tunnel_coord
+            yaw = course.tunnel_yaw
+
+        case aux.DogModelTarget.RAMP:
+            coord = course.ramp_coord
+            yaw = course.ramp_yaw
+
+        case aux.DogModelTarget.TILE:
+            coord = course.finish_tile_coord
+            yaw = course.finish_tile_yaw
+
+        case _:
+            raise ValueError(f"unknown target: {target}")
+
+    return ti.Vec2(
+        coord.x - math.cos(yaw) * APPROACH_DISTANCE,
+        coord.y - math.sin(yaw) * APPROACH_DISTANCE,
+    )
+
 
 def calculate_reward(
     state: ti.StepState,
@@ -55,8 +94,8 @@ def calculate_reward(
     sim_mov_r,
 ) -> float:
     reward = 0
-    
-    # finished near finish tile 
+
+    # reward when finished near finish tile, punishement when far from tile
     if action == aux.DogModelAction.FINISHED:
         d = distance(state.dog_pos.coord, course.finish_tile_coord)
 
@@ -66,9 +105,10 @@ def calculate_reward(
         )
 
     # looked somewhere new
-    if looked[
-        yaw_to_look_idx(sim_mov_r, state.dog_pos.yaw)
-    ] == False:
+    idx = yaw_to_look_idx(sim_mov_r, next_state.dog_pos.yaw)
+
+    if looked[idx] == False:
+        looked[idx] = True
         reward += LOOKED_AROUND
 
     # punish if finished an target is not tile
@@ -76,6 +116,24 @@ def calculate_reward(
     # punish if tunelled when target is not tunelled
 
     # went towards target
+    trigger_point = get_trigger_point(
+        state.target,
+        course,
+    )
+
+    old_distance = distance(
+        state.dog_pos.coord,
+        trigger_point,
+    )
+
+    new_distance = distance(
+        next_state.dog_pos.coord,
+        trigger_point,
+    )
+
+    progress = old_distance - new_distance
+
+    reward += progress * APPROACH_REWARD_SCALE
 
     # tunnelled near tunnel spot (scale with distance)
     # ramped near ramp (scale with distance)
@@ -84,10 +142,100 @@ def calculate_reward(
     # reduce reward if collided with obstacle
     return reward
 
+
+def train_step(
+    online_model,
+    target_model,
+    replay_buffer,
+    optimiser,
+    gamma: float,
+):
+    if len(replay_buffer) < replay_buffer.batch_size:
+        return
+
+    batch = replay_buffer.sample()
+
+    losses = []
+
+    for transition in batch:
+        q_values = online_model(
+            transition.state.fb,
+            transition.state.target,
+        )
+
+        action_index = list(aux.DogModelAction).index(transition.action)
+
+        predicted_q = q_values[action_index]
+
+        with torch.no_grad():
+            if transition.next_state.done:
+                target_q = torch.tensor(
+                    transition.reward,
+                    dtype=predicted_q.dtype,
+                    device=predicted_q.device,
+                )
+            else:
+                next_online_q = online_model(
+                    transition.next_state.fb,
+                    transition.next_state.target,
+                )
+
+                best_next_action = next_online_q.argmax()
+
+                next_target_q = target_model(
+                    transition.next_state.fb,
+                    transition.next_state.target,
+                )
+
+                future_q = next_target_q[best_next_action]
+
+                target_q = transition.reward + gamma * future_q
+
+        losses.append(
+            torch.nn.functional.smooth_l1_loss(
+                predicted_q,
+                target_q,
+            )
+        )
+
+    loss = torch.stack(losses).mean()
+
+    optimiser.zero_grad()
+    loss.backward()
+    optimiser.step()
+
+    return loss.item()
+
+
+def save_checkpoint(
+    model_dir: Path,
+    episode: int,
+    online_model,
+    target_model,
+    optimiser,
+    epsilon: float,
+):
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    path = model_dir / f"checkpoint_{episode:04d}.pt"
+
+    torch.save(
+        {
+            "episode": episode,
+            "online_model": online_model.state_dict(),
+            "target_model": target_model.state_dict(),
+            "optimiser": optimiser.state_dict(),
+            "epsilon": epsilon,
+        },
+        path,
+    )
+
+
 def run_new(model_dir: Path):
     replay_buffer = ReplayBuffer(
         storage=ListStorage(max_size=50_000),
         batch_size=64,
+        collate_fn=lambda x: x,
     )
 
     online_model = model.DogModel()
@@ -105,42 +253,68 @@ def run_new(model_dir: Path):
 
     sim = ti.TrainingSimulator()
 
-    state, course = sim.reset(0)
-
     looked = [False] * int((2 * math.pi) / sim.MOV_R)
 
-    while not state.done:
-        action = choose_action(
-            online_model,
-            state.fb,
-            state.target,
-            epsilon,
-        )
-    
-        old_state = copy.deepcopy(state)
-    
-        next_state = sim.step(action)
+    for episode in range(NUM_EPISODES):
+        state, course = sim.reset(episode)
+        looked = [False] * int((2 * math.pi) / sim.MOV_R)
+        episode_reward = 0.0
 
-        if old_state.target != next_state.target:
-            looked = [False] * int((2 * math.pi) / sim.MOV_R)
-    
-        reward = calculate_reward(
-            old_state,
-            next_state,
-            course,
-            action,
-            looked,
-            sim.MOV_R
-        )
-    
-        replay_buffer.add(
-            Transition(
-                state=old_state,
-                course=copy.deepcopy(course),
-                action=action,
-                reward=reward,
-                next_state=copy.deepcopy(next_state),
+        while not state.done:
+            action = choose_action(
+                online_model,
+                state.fb,
+                state.target,
+                epsilon,
             )
+
+            old_state = copy.deepcopy(state)
+
+            next_state = sim.step(action)
+            if old_state.target != next_state.target:
+                looked = [False] * int((2 * math.pi) / sim.MOV_R)
+
+            reward = calculate_reward(
+                old_state, next_state, course, action, looked, sim.MOV_R
+            )
+
+            replay_buffer.add(
+                Transition(
+                    state=old_state,
+                    course=copy.deepcopy(course),
+                    action=action,
+                    reward=reward,
+                    next_state=copy.deepcopy(next_state),
+                )
+            )
+
+            loss = train_step(
+                online_model,
+                target_model,
+                replay_buffer,
+                optimiser,
+                gamma,
+            )
+
+            episode_reward += reward
+            state = next_state
+
+        epsilon = max(
+            MIN_EPSILON,
+            epsilon * EPSILON_DECAY,
         )
-    
-        state = next_state
+
+        if episode % TARGET_UPDATE_INTERVAL == 0:
+            target_model.load_state_dict(online_model.state_dict())
+
+        print(episode, episode_reward, epsilon, loss, flush=True)
+
+        if (episode + 1) % SAVE_INTERVAL == 0:
+            save_checkpoint(
+                model_dir,
+                episode + 1,
+                online_model,
+                target_model,
+                optimiser,
+                epsilon,
+            )
