@@ -121,7 +121,7 @@ class TrainingSimulator:
 
         self.rseed: int = 0
         self.RESET_COURSE_WATCHDOG_INIT = 100
-        self.MAX_STEPS = 500
+        self.MAX_STEPS = 300
         self.step_state = StepState(
             DogPos(self.DOG_START_COORD, 0),
             np.array([]),
