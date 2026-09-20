@@ -12,6 +12,7 @@ BAD_SPECIAL_ACTION = -5
 COLLISION = -7
 REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT = -3
 TURN_REWARD_SCALE = 1
+MAX_TUNNEL_YAW_REWARD = 5.0
 
 def distance(a: ti.Vec2, b: ti.Vec2):
     return math.hypot(a.x - b.x, a.y - b.y)
@@ -89,10 +90,6 @@ def calculate_reward(
         looked[idx] = True
         reward += LOOKED_AROUND
 
-    if action == aux.DogModelAction.TUNNEL:
-        if state.target != aux.DogModelAction.TUNNEL:
-            reward += BAD_SPECIAL_ACTION
-
     if action == aux.DogModelAction.RAMP:
         if state.target != aux.DogModelAction.RAMP:
             reward += BAD_SPECIAL_ACTION
@@ -133,13 +130,19 @@ def calculate_reward(
     if action == aux.DogModelAction.TUNNEL:
         d = distance(state.dog_pos.coord, trigger_point)
 
-        reward += MAX_FINISH_REWARD * max(
-            -1.0,
-            1.0 - d / FINISH_REWARD_RADIUS,
-        )
-
         if state.target != aux.DogModelTarget.TUNNEL:
             reward += BAD_SPECIAL_ACTION
+        else:
+            reward += MAX_FINISH_REWARD * max(
+                0.0,
+                1.0 - d / FINISH_REWARD_RADIUS,
+            )
+
+            # go2's yaw and tunnel's yaw were close when tunnel was trigged
+            reward += MAX_TUNNEL_YAW_REWARD * max(
+                0.0,
+                math.cos(state.dog_pos.yaw - course.tunnel_yaw),
+            )
 
     # ramped near ramp (scale with distance)
     if action == aux.DogModelAction.RAMP:
@@ -153,7 +156,6 @@ def calculate_reward(
         if state.target != aux.DogModelTarget.RAMP:
             reward += BAD_SPECIAL_ACTION
 
-    # go2's yaw and tunnel's yaw were close when tunnel was trigged
     # go2's yaw and ramp's yaw were close when ramp was trigged
 
     # reward for turning towards target
