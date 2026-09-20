@@ -56,6 +56,7 @@ def run(model_path: Path):
                     q_values = dog_model(
                         state.fb,
                         state.target,
+                        state.last_action,
                     )
 
                 action_index = q_values.argmax().item()

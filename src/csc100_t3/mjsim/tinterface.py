@@ -21,6 +21,7 @@ class StepState:
     target: aux.DogModelTarget
     remaining_steps: int
     done: bool
+    last_action: aux.DogModelAction | None
 
 
 @dataclass
@@ -130,6 +131,7 @@ class TrainingSimulator:
             aux.DogModelTarget.TUNNEL,
             0,
             False,
+            None,
         )
 
         self.POST_OBSTACLE_GAP = 0.3
@@ -386,6 +388,7 @@ class TrainingSimulator:
             aux.DogModelTarget.TUNNEL,
             self.MAX_STEPS,
             False,
+            None,
         )
 
         return (self.step_state, self.course_state)
@@ -446,5 +449,6 @@ class TrainingSimulator:
         )
 
         self.step_state.fb = self.cam_renderer.render()
+        self.step_state.last_action = action
 
         return self.step_state

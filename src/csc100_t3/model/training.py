@@ -32,13 +32,14 @@ def choose_action(
     model: model.DogModel,
     fb,
     target,
+    last_action: aux.DogModelAction | None,
     epsilon: float,
 ) -> aux.DogModelAction:
     if random.random() < epsilon:
         return random.choice(list(aux.DogModelAction))
 
     with torch.no_grad():
-        q_values = model(fb, target)
+        q_values = model(fb, target, last_action)
 
     index = q_values.argmax().item()
 
@@ -63,6 +64,7 @@ def train_step(
         q_values = online_model(
             transition.state.fb,
             transition.state.target,
+            transition.state.last_action,
         )
 
         action_index = list(aux.DogModelAction).index(transition.action)
@@ -80,6 +82,7 @@ def train_step(
                 next_online_q = online_model(
                     transition.next_state.fb,
                     transition.next_state.target,
+                    transition.next_state.last_action,
                 )
 
                 best_next_action = next_online_q.argmax()
@@ -87,6 +90,7 @@ def train_step(
                 next_target_q = target_model(
                     transition.next_state.fb,
                     transition.next_state.target,
+                    transition.next_state.last_action,
                 )
 
                 future_q = next_target_q[best_next_action]
@@ -156,8 +160,6 @@ def run_new(model_dir: Path):
     sim = ti.TrainingSimulator()
 
     looked = [False] * int((2 * math.pi) / sim.MOV_R)
-    previous_action: aux.DogModelAction | None = None
-
     for episode in range(NUM_EPISODES):
         state, course = sim.reset(episode)
         looked = [False] * int((2 * math.pi) / sim.MOV_R)
@@ -168,6 +170,7 @@ def run_new(model_dir: Path):
                 online_model,
                 state.fb,
                 state.target,
+                state.last_action,
                 epsilon,
             )
 
@@ -184,11 +187,9 @@ def run_new(model_dir: Path):
                 action,
                 looked,
                 sim.MOV_R,
-                previous_action,
+                old_state.last_action,
                 sim.is_keepout_respected,
             )
-
-            previous_action = action
 
             replay_buffer.add(
                 Transition(
