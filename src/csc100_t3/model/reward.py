@@ -8,8 +8,9 @@ FINISH_REWARD_RADIUS = 1.0
 LOOKED_AROUND = 0.1
 APPROACH_DISTANCE = 0.5
 APPROACH_REWARD_SCALE = 4.0
-BAD_SPECIAL_ACTION = 5
-COLLISION = 7
+BAD_SPECIAL_ACTION = -5
+COLLISION = -7
+REPEATED_MOVEMENT_AND_MOVING_AWAY_FROM_TRIGGER_POINT = -1
 
 
 def distance(a: ti.Vec2, b: ti.Vec2):
@@ -69,7 +70,7 @@ def calculate_reward(
         )
 
         if state.target != aux.DogModelTarget.TILE:
-            reward -= BAD_SPECIAL_ACTION
+            reward += BAD_SPECIAL_ACTION
 
     # looked somewhere new
     idx = yaw_to_look_idx(sim_mov_r, next_state.dog_pos.yaw)
@@ -80,11 +81,11 @@ def calculate_reward(
 
     if action == aux.DogModelAction.TUNNEL:
         if state.target != aux.DogModelAction.TUNNEL:
-            reward -= BAD_SPECIAL_ACTION
+            reward += BAD_SPECIAL_ACTION
 
     if action == aux.DogModelAction.RAMP:
         if state.target != aux.DogModelAction.RAMP:
-            reward -= BAD_SPECIAL_ACTION
+            reward += BAD_SPECIAL_ACTION
 
     # went towards target
     trigger_point = get_trigger_point(
@@ -123,8 +124,19 @@ def calculate_reward(
     # go2's yaw and ramp's yaw were close when ramp was trigged
 
     # reduce reward if collided with obstacle
-    if ikr() == False:
+    if ikr(next_state.dog_pos.coord, course, True) == False:
         print("COLLISION")
-        reward -= COLLISION
+        reward += COLLISION
+
+    # punish repeated movement without getting closer to target
+    ctp = get_trigger_point(state.target, course)
+    if (
+        previous_action == action
+        and state.target == next_state.target
+        and (
+            distance(state.dog_pos.coord, ctp) < distance(next_state.dog_pos.coord, ctp)
+        )
+    ):
+        reward += REPEATED_MOVEMENT_AND_MOVING_AWAY_FROM_TRIGGER_POINT
 
     return reward

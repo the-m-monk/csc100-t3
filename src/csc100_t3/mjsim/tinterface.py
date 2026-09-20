@@ -254,13 +254,26 @@ class TrainingSimulator:
             finish_yaw,
         )
 
-    def is_keepout_respected(self):
+    def is_keepout_respected(
+        self, dog_pos_vec2=None, course=None, disable_radial_spacing=False
+    ):
+        if dog_pos_vec2 == None:
+            dog_pos_vec2 = self.DOG_START_COORD
+
+        if course == None:
+            course = self.course_state
+
+        drs = 0
+
+        if disable_radial_spacing:
+            drs = self.KEEPOUT_RADIAL_SPACING
+
         objs = [
-            (self.DOG_START_COORD, self.DOG_KEEPOUT),
-            (self.course_state.tunnel_coord, self.TUNNEL_KEEPOUT),
-            (self.course_state.ramp_coord, self.RAMP_KEEPOUT),
-            (self.course_state.chest_coord, self.CHEST_KEEPOUT),
-            (self.course_state.finish_tile_coord, self.FINISH_KEEPOUT),
+            (dog_pos_vec2, self.DOG_KEEPOUT - drs),
+            (course.tunnel_coord, self.TUNNEL_KEEPOUT - drs),
+            (course.ramp_coord, self.RAMP_KEEPOUT - drs),
+            (course.chest_coord, self.CHEST_KEEPOUT - drs),
+            (course.finish_tile_coord, self.FINISH_KEEPOUT - drs),
         ]
 
         for i, a in enumerate(objs):
