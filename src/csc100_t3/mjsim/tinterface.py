@@ -119,8 +119,8 @@ class TrainingSimulator:
 
         # movement
         # https://github.com/Yaocheng-yan/Unitree-go2-Navi/blob/main/技术文档.md
-        self.MOV_FB = 0.25  # not framebuffer, forward and back
-        self.MOV_R = math.radians(15)
+        self.MOV_FB = 0.1  # not framebuffer, forward and back
+        self.MOV_R = math.radians(1)  # likely achievable IRL with imu/odometry feedback
 
         self.rseed: int = 0
         self.RESET_COURSE_WATCHDOG_INIT = 100
