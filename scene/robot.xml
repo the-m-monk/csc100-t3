@@ -9,7 +9,7 @@
             <freejoint name="go2_joint"/>
 
             <geom name="go2_body_mesh" type="mesh" mesh="go2_mesh" rgba="0.6 0.6 0.6 1"/>
-            <camera name="go2_camera" pos="0.368185 0.000227 0.4" xyaxes="0 -1 0 0 0 1"/>
+            <camera name="go2_camera" pos="0.368185 0.000227 0.4" xyaxes="0 -1 0 0 0 1" fovy="88.5"/>
         </body>
     </worldbody>
 
