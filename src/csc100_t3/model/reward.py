@@ -11,7 +11,7 @@ APPROACH_REWARD_SCALE = 4.0
 BAD_SPECIAL_ACTION = -5
 COLLISION = -7
 REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT = -3
-
+TURN_REWARD_SCALE = 1
 
 def distance(a: ti.Vec2, b: ti.Vec2):
     return math.hypot(a.x - b.x, a.y - b.y)
@@ -47,6 +47,16 @@ def get_trigger_point(
         coord.y - math.sin(yaw) * APPROACH_DISTANCE,
     )
 
+def angle_diff(a, b):
+    return (a - b + math.pi) % (2 * math.pi) - math.pi
+
+def angle_to_trigger(dog_pos: ti.DogPos, trigger_point: ti.Vec2):
+    bearing = math.atan2(
+        trigger_point.y - dog_pos.coord.y,
+        trigger_point.x - dog_pos.coord.x,
+    )
+
+    return angle_diff(bearing, dog_pos.yaw)
 
 def calculate_reward(
     state: ti.StepState,
@@ -145,6 +155,19 @@ def calculate_reward(
 
     # go2's yaw and tunnel's yaw were close when tunnel was trigged
     # go2's yaw and ramp's yaw were close when ramp was trigged
+
+    # reward for turning towards target
+    old_angle = angle_to_trigger(
+        state.dog_pos,
+        trigger_point,
+    )
+
+    new_angle = angle_to_trigger(
+        next_state.dog_pos,
+        trigger_point,
+    )
+
+    reward += (old_angle - new_angle) * TURN_REWARD_SCALE
 
     # reduce reward if collided with obstacle
     if ikr(next_state.dog_pos.coord, course, True) == False:
