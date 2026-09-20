@@ -86,32 +86,34 @@ class TrainingSimulator:
         self.CHEST_KEEPOUT = (0.7 / 2) + self.KEEPOUT_RADIAL_SPACING
         self.FINISH_KEEPOUT = (0.3 / 2) + self.KEEPOUT_RADIAL_SPACING
 
+        self.MIN_SPACING = 2
+
         self.START_TO_TUNNEL_VARIANCE = {
-            "dmin": self.DOG_KEEPOUT + self.TUNNEL_KEEPOUT,
-            "dmax": 10,
-            "ymin": math.radians(-90),
-            "ymax": math.radians(90),
+            "dmin": max(self.DOG_KEEPOUT + self.TUNNEL_KEEPOUT, self.MIN_SPACING),
+            "dmax": 8,
+            "ymin": math.radians(-70),
+            "ymax": math.radians(70),
         }
 
         self.TUNNEL_TO_RAMP_VARIANCE = {
-            "dmin": self.TUNNEL_KEEPOUT + self.RAMP_KEEPOUT,
-            "dmax": 10,
-            "ymin": math.radians(-90),
-            "ymax": math.radians(90),
+            "dmin": max(self.TUNNEL_KEEPOUT + self.RAMP_KEEPOUT, self.MIN_SPACING),
+            "dmax": 8,
+            "ymin": math.radians(-70),
+            "ymax": math.radians(70),
         }
 
         self.RAMP_TO_CHEST_VARIANCE = {
-            "dmin": self.RAMP_KEEPOUT + self.CHEST_KEEPOUT,
-            "dmax": 10,
-            "ymin": math.radians(-90),
-            "ymax": math.radians(90),
+            "dmin":  max(self.RAMP_KEEPOUT + self.CHEST_KEEPOUT, self.MIN_SPACING),
+            "dmax": 8,
+            "ymin": math.radians(-70),
+            "ymax": math.radians(70),
         }
 
         self.CHEST_TO_FINISH_VARIANCE = {
-            "dmin": self.CHEST_KEEPOUT + self.FINISH_KEEPOUT,
-            "dmax": 10,
-            "ymin": math.radians(-90),
-            "ymax": math.radians(90),
+            "dmin": max(self.CHEST_KEEPOUT + self.FINISH_KEEPOUT, self.MIN_SPACING),
+            "dmax": 8,
+            "ymin": math.radians(-70),
+            "ymax": math.radians(70),
         }
 
         # movement
