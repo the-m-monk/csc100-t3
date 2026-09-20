@@ -103,7 +103,7 @@ class TrainingSimulator:
         }
 
         self.RAMP_TO_CHEST_VARIANCE = {
-            "dmin":  max(self.RAMP_KEEPOUT + self.CHEST_KEEPOUT, self.MIN_SPACING),
+            "dmin": max(self.RAMP_KEEPOUT + self.CHEST_KEEPOUT, self.MIN_SPACING),
             "dmax": 8,
             "ymin": math.radians(-70),
             "ymax": math.radians(70),

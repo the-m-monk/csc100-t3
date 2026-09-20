@@ -10,7 +10,7 @@ APPROACH_DISTANCE = 0.5
 APPROACH_REWARD_SCALE = 4.0
 BAD_SPECIAL_ACTION = -5
 COLLISION = -7
-REPEATED_MOVEMENT_AND_MOVING_AWAY_FROM_TRIGGER_POINT = -2
+REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT = -2
 
 
 def distance(a: ti.Vec2, b: ti.Vec2):
@@ -157,9 +157,10 @@ def calculate_reward(
         and state.target == next_state.target
         and (
             distance(state.dog_pos.coord, trigger_point)
-            < distance(next_state.dog_pos.coord, trigger_point)
+            <= distance(next_state.dog_pos.coord, trigger_point)
         )
     ):
-        reward += REPEATED_MOVEMENT_AND_MOVING_AWAY_FROM_TRIGGER_POINT
+        print("REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT")
+        reward += REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT
 
     return reward
