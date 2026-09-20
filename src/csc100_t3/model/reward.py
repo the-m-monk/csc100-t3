@@ -3,24 +3,35 @@ import math
 from csc100_t3.mjsim import tinterface as ti
 from csc100_t3.model import aux
 
-MAX_FINISH_REWARD = 20  # used by TP for tunnel and ramp too
-FINISH_REWARD_RADIUS = 1.0
-LOOKED_AROUND = 0.5
+
+MAX_FINISH_REWARD = 30.0
+FINISH_REWARD_RADIUS = 0.5
+LOOKED_AROUND = 0.10
+LOOK_BIN_SIZE = math.radians(20)
 APPROACH_DISTANCE = 0.5
-APPROACH_REWARD_SCALE = 4.0
-BAD_SPECIAL_ACTION = -5
-COLLISION = -7
-REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT = -3
-TURN_REWARD_SCALE = 1
-MAX_TUNNEL_YAW_REWARD = 5.0
+APPROACH_REWARD_SCALE = 5.0
+RETREAT_PENALTY_SCALE = 10.0
+RETREAT_DEADBAND = 0.005
+BAD_SPECIAL_ACTION = -10
+COLLISION = -15
+REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT = -2.0
+OSCILLATION_PENALTY = -0.75
+TURN_REWARD_SCALE = 25.0  # increased because turn amount decreased
+MAX_SPECIAL_YAW_REWARD = 10.0
+SPECIAL_YAW_REWARD_RADIUS = math.radians(8)
+
 
 def distance(a: ti.Vec2, b: ti.Vec2):
     return math.hypot(a.x - b.x, a.y - b.y)
 
 
-def yaw_to_look_idx(sim_mov_r, y):
-    y = y % (2 * math.pi)
-    return int(y / sim_mov_r) % int((2 * math.pi) / sim_mov_r)
+def yaw_to_look_idx(yaw: float):
+    yaw %= 2 * math.pi
+    return int(yaw / LOOK_BIN_SIZE)
+
+
+def angle_diff(a, b):
+    return (a - b + math.pi) % (2 * math.pi) - math.pi
 
 
 def get_trigger_point(
@@ -48,16 +59,30 @@ def get_trigger_point(
         coord.y - math.sin(yaw) * APPROACH_DISTANCE,
     )
 
-def angle_diff(a, b):
-    return (a - b + math.pi) % (2 * math.pi) - math.pi
 
-def angle_to_trigger(dog_pos: ti.DogPos, trigger_point: ti.Vec2):
+def angle_to_trigger(
+    dog_pos: ti.DogPos,
+    trigger_point: ti.Vec2,
+):
     bearing = math.atan2(
         trigger_point.y - dog_pos.coord.y,
         trigger_point.x - dog_pos.coord.x,
     )
 
     return angle_diff(bearing, dog_pos.yaw)
+
+
+def special_yaw_reward(
+    dog_yaw: float,
+    target_yaw: float,
+):
+    error = abs(angle_diff(dog_yaw, target_yaw))
+
+    return MAX_SPECIAL_YAW_REWARD * max(
+        0.0,
+        1.0 - error / SPECIAL_YAW_REWARD_RADIUS,
+    )
+
 
 def calculate_reward(
     state: ti.StepState,
@@ -69,11 +94,13 @@ def calculate_reward(
     previous_action: aux.DogModelAction | None,
     ikr,
 ) -> float:
-    reward = 0
+    reward = 0.0
 
-    # reward when finished near finish tile, punishement when far from tile
     if action == aux.DogModelAction.FINISHED:
-        d = distance(state.dog_pos.coord, course.finish_tile_coord)
+        d = distance(
+            state.dog_pos.coord,
+            course.finish_tile_coord,
+        )
 
         reward += MAX_FINISH_REWARD * max(
             -1.0,
@@ -83,18 +110,12 @@ def calculate_reward(
         if state.target != aux.DogModelTarget.TILE:
             reward += BAD_SPECIAL_ACTION
 
-    # looked somewhere new
-    idx = yaw_to_look_idx(sim_mov_r, next_state.dog_pos.yaw)
+    idx = yaw_to_look_idx(next_state.dog_pos.yaw)
 
-    if looked[idx] == False:
+    if not looked[idx]:
         looked[idx] = True
         reward += LOOKED_AROUND
 
-    if action == aux.DogModelAction.RAMP:
-        if state.target != aux.DogModelAction.RAMP:
-            reward += BAD_SPECIAL_ACTION
-
-    # went towards target
     trigger_point = get_trigger_point(
         state.target,
         course,
@@ -113,9 +134,11 @@ def calculate_reward(
     if state.target == next_state.target:
         progress = old_distance - new_distance
 
-        reward += progress * APPROACH_REWARD_SCALE
+        if progress > RETREAT_DEADBAND:
+            reward += progress * APPROACH_REWARD_SCALE
+        elif progress < -RETREAT_DEADBAND:
+            reward += progress * RETREAT_PENALTY_SCALE
 
-    # punish oscillation
     opposites = {
         aux.DogModelAction.FORWARD: aux.DogModelAction.BACKWARD,
         aux.DogModelAction.BACKWARD: aux.DogModelAction.FORWARD,
@@ -124,68 +147,83 @@ def calculate_reward(
     }
 
     if previous_action is not None and opposites.get(action) == previous_action:
-        reward -= 0.2
+        reward += OSCILLATION_PENALTY
 
-    # tunnelled near tunnel spot (scale with distance)
     if action == aux.DogModelAction.TUNNEL:
-        d = distance(state.dog_pos.coord, trigger_point)
+        d = distance(
+            state.dog_pos.coord,
+            trigger_point,
+        )
 
         if state.target != aux.DogModelTarget.TUNNEL:
             reward += BAD_SPECIAL_ACTION
         else:
             reward += MAX_FINISH_REWARD * max(
-                0.0,
+                -1.0,
                 1.0 - d / FINISH_REWARD_RADIUS,
             )
 
-            # go2's yaw and tunnel's yaw were close when tunnel was trigged
-            reward += MAX_TUNNEL_YAW_REWARD * max(
-                0.0,
-                math.cos(state.dog_pos.yaw - course.tunnel_yaw),
+            reward += special_yaw_reward(
+                state.dog_pos.yaw,
+                course.tunnel_yaw,
             )
 
-    # ramped near ramp (scale with distance)
     if action == aux.DogModelAction.RAMP:
-        d = distance(state.dog_pos.coord, trigger_point)
-
-        reward += MAX_FINISH_REWARD * max(
-            -1.0,
-            1.0 - d / FINISH_REWARD_RADIUS,
+        d = distance(
+            state.dog_pos.coord,
+            trigger_point,
         )
 
         if state.target != aux.DogModelTarget.RAMP:
             reward += BAD_SPECIAL_ACTION
+        else:
+            reward += MAX_FINISH_REWARD * max(
+                -1.0,
+                1.0 - d / FINISH_REWARD_RADIUS,
+            )
 
-    # go2's yaw and ramp's yaw were close when ramp was trigged
+            reward += special_yaw_reward(
+                state.dog_pos.yaw,
+                course.ramp_yaw,
+            )
 
-    # reward for turning towards target
-    old_angle = angle_to_trigger(
-        state.dog_pos,
-        trigger_point,
-    )
+    if state.target == next_state.target:
+        old_angle = abs(
+            angle_to_trigger(
+                state.dog_pos,
+                trigger_point,
+            )
+        )
 
-    new_angle = angle_to_trigger(
-        next_state.dog_pos,
-        trigger_point,
-    )
+        new_angle = abs(
+            angle_to_trigger(
+                next_state.dog_pos,
+                trigger_point,
+            )
+        )
 
-    reward += (old_angle - new_angle) * TURN_REWARD_SCALE
+        reward += (old_angle - new_angle) * TURN_REWARD_SCALE
 
-    # reduce reward if collided with obstacle
-    if ikr(next_state.dog_pos.coord, course, True) == False:
+    if not ikr(
+        next_state.dog_pos.coord,
+        course,
+        True,
+    ):
         print("COLLISION")
         reward += COLLISION
 
-    # punish repeated movement without getting closer to target
     if (
-        previous_action == action
+        action
+        in {
+            aux.DogModelAction.FORWARD,
+            aux.DogModelAction.BACKWARD,
+        }
+        and previous_action == action
         and state.target == next_state.target
-        and (
-            distance(state.dog_pos.coord, trigger_point)
-            <= distance(next_state.dog_pos.coord, trigger_point)
-        )
+        and new_distance >= old_distance
     ):
         print("REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT")
+
         reward += REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT
 
     return reward
