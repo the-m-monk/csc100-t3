@@ -130,8 +130,30 @@ class TrainingSimulator:
             False,
         )
 
-        self.TUNNEL_LENGTH = 1.3
-        self.RAMP_LENGTH = 1.2
+        self.POST_OBSTACLE_GAP = 0.3
+        dog_rear_x = self.mesh_x_bounds("go2_body_mesh")[0]
+        self.TUNNEL_EXIT_OFFSET = (
+            self.mesh_x_bounds("tunnel_body")[1]
+            - dog_rear_x
+            + self.POST_OBSTACLE_GAP
+        )
+        self.RAMP_EXIT_OFFSET = (
+            self.mesh_x_bounds("ramp_body")[1]
+            - dog_rear_x
+            + self.POST_OBSTACLE_GAP
+        )
+
+    def mesh_x_bounds(self, geom_name: str) -> tuple[float, float]:
+        geom = self.scene.geom(geom_name)
+        mesh_id = geom.dataid[0]
+        first = self.scene.mesh_vertadr[mesh_id]
+        count = self.scene.mesh_vertnum[mesh_id]
+        vertices = self.scene.mesh_vert[first : first + count]
+
+        rotation = np.empty(9)
+        mujoco.mju_quat2Mat(rotation, geom.quat)
+        x = vertices @ rotation.reshape(3, 3)[0] + geom.pos[0]
+        return float(x.min()), float(x.max())
 
     def place_relative(
         self,
@@ -290,6 +312,11 @@ class TrainingSimulator:
         self.step_state.dog_pos.yaw = yaw
 
     # absolute
+    def clear_go2_velocity(self):
+        go2_joint = self.scene.joint("go2_joint")
+        go2_dadr = self.scene.jnt_dofadr[go2_joint.id]
+        self.data.qvel[go2_dadr : go2_dadr + 6] = 0
+
     def set_go2_pos(self, d: Vec2, y: float):
         go2_joint = self.scene.joint("go2_joint")
         go2_qadr = self.scene.jnt_qposadr[go2_joint.id]
@@ -303,6 +330,7 @@ class TrainingSimulator:
             0,
             math.sin(y / 2),
         ]
+        self.clear_go2_velocity()
 
         self.step_state.dog_pos.coord.x = d.x
         self.step_state.dog_pos.coord.y = d.y
@@ -374,10 +402,10 @@ class TrainingSimulator:
                     Vec2(
                         self.course_state.tunnel_coord.x
                         + math.cos(self.course_state.tunnel_yaw)
-                        * (self.TUNNEL_LENGTH / 2 + 0.1),
+                        * self.TUNNEL_EXIT_OFFSET,
                         self.course_state.tunnel_coord.y
                         + math.sin(self.course_state.tunnel_yaw)
-                        * (self.TUNNEL_LENGTH / 2 + 0.1),
+                        * self.TUNNEL_EXIT_OFFSET,
                     ),
                     self.course_state.tunnel_yaw,
                 )
@@ -387,10 +415,10 @@ class TrainingSimulator:
                     Vec2(
                         self.course_state.ramp_coord.x
                         + math.cos(self.course_state.ramp_yaw)
-                        * (self.RAMP_LENGTH / 2 + 0.1),
+                        * self.RAMP_EXIT_OFFSET,
                         self.course_state.ramp_coord.y
                         + math.sin(self.course_state.ramp_yaw)
-                        * (self.RAMP_LENGTH / 2 + 0.1),
+                        * self.RAMP_EXIT_OFFSET,
                     ),
                     self.course_state.ramp_yaw,
                 )
@@ -400,6 +428,8 @@ class TrainingSimulator:
                 self.step_state.done = True
 
         mujoco.mj_step(self.scene, self.data)
+        if action in (aux.DogModelAction.TUNNEL, aux.DogModelAction.RAMP):
+            self.clear_go2_velocity()
 
         self.cam_renderer.update_scene(
             self.data,
