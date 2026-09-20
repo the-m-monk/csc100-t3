@@ -93,6 +93,7 @@ def calculate_reward(
     action: aux.DogModelAction,
     looked,
     sim_mov_r,
+    previous_action: aux.DogModelAction | None,
 ) -> float:
     reward = 0
 
@@ -142,6 +143,17 @@ def calculate_reward(
     progress = old_distance - new_distance
 
     reward += progress * APPROACH_REWARD_SCALE
+
+    # punish oscillation
+    opposites = {
+        aux.DogModelAction.FORWARD: aux.DogModelAction.BACKWARD,
+        aux.DogModelAction.BACKWARD: aux.DogModelAction.FORWARD,
+        aux.DogModelAction.LEFT: aux.DogModelAction.RIGHT,
+        aux.DogModelAction.RIGHT: aux.DogModelAction.LEFT,
+    }
+
+    if previous_action is not None and opposites.get(action) == previous_action:
+        reward -= 0.2
 
     # tunnelled near tunnel spot (scale with distance)
     # ramped near ramp (scale with distance)
@@ -262,6 +274,7 @@ def run_new(model_dir: Path):
     sim = ti.TrainingSimulator()
 
     looked = [False] * int((2 * math.pi) / sim.MOV_R)
+    previous_action: aux.DogModelAction | None = None
 
     for episode in range(NUM_EPISODES):
         state, course = sim.reset(episode)
@@ -283,8 +296,16 @@ def run_new(model_dir: Path):
                 looked = [False] * int((2 * math.pi) / sim.MOV_R)
 
             reward = calculate_reward(
-                old_state, next_state, course, action, looked, sim.MOV_R
+                old_state,
+                next_state,
+                course,
+                action,
+                looked,
+                sim.MOV_R,
+                previous_action,
             )
+
+            previous_action = action
 
             replay_buffer.add(
                 Transition(

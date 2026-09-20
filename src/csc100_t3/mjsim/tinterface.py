@@ -133,14 +133,10 @@ class TrainingSimulator:
         self.POST_OBSTACLE_GAP = 0.3
         dog_rear_x = self.mesh_x_bounds("go2_body_mesh")[0]
         self.TUNNEL_EXIT_OFFSET = (
-            self.mesh_x_bounds("tunnel_body")[1]
-            - dog_rear_x
-            + self.POST_OBSTACLE_GAP
+            self.mesh_x_bounds("tunnel_body")[1] - dog_rear_x + self.POST_OBSTACLE_GAP
         )
         self.RAMP_EXIT_OFFSET = (
-            self.mesh_x_bounds("ramp_body")[1]
-            - dog_rear_x
-            + self.POST_OBSTACLE_GAP
+            self.mesh_x_bounds("ramp_body")[1] - dog_rear_x + self.POST_OBSTACLE_GAP
         )
 
     def mesh_x_bounds(self, geom_name: str) -> tuple[float, float]:
@@ -414,11 +410,9 @@ class TrainingSimulator:
                 self.set_go2_pos(
                     Vec2(
                         self.course_state.ramp_coord.x
-                        + math.cos(self.course_state.ramp_yaw)
-                        * self.RAMP_EXIT_OFFSET,
+                        + math.cos(self.course_state.ramp_yaw) * self.RAMP_EXIT_OFFSET,
                         self.course_state.ramp_coord.y
-                        + math.sin(self.course_state.ramp_yaw)
-                        * self.RAMP_EXIT_OFFSET,
+                        + math.sin(self.course_state.ramp_yaw) * self.RAMP_EXIT_OFFSET,
                     ),
                     self.course_state.ramp_yaw,
                 )
