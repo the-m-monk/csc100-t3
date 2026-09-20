@@ -3,7 +3,7 @@ import math
 from csc100_t3.mjsim import tinterface as ti
 from csc100_t3.model import aux
 
-MAX_FINISH_REWARD = 20
+MAX_FINISH_REWARD = 20  # used by TP for tunnel and ramp too
 FINISH_REWARD_RADIUS = 1.0
 LOOKED_AROUND = 0.1
 APPROACH_DISTANCE = 0.5
@@ -64,7 +64,7 @@ def calculate_reward(
     if action == aux.DogModelAction.FINISHED:
         d = distance(state.dog_pos.coord, course.finish_tile_coord)
 
-        reward = MAX_FINISH_REWARD * max(
+        reward += MAX_FINISH_REWARD * max(
             -1.0,
             1.0 - d / FINISH_REWARD_RADIUS,
         )
@@ -103,9 +103,10 @@ def calculate_reward(
         trigger_point,
     )
 
-    progress = old_distance - new_distance
+    if state.target == next_state.target:
+        progress = old_distance - new_distance
 
-    reward += progress * APPROACH_REWARD_SCALE
+        reward += progress * APPROACH_REWARD_SCALE
 
     # punish oscillation
     opposites = {
@@ -119,7 +120,29 @@ def calculate_reward(
         reward -= 0.2
 
     # tunnelled near tunnel spot (scale with distance)
+    if action == aux.DogModelAction.TUNNEL:
+        d = distance(state.dog_pos.coord, trigger_point)
+
+        reward += MAX_FINISH_REWARD * max(
+            -1.0,
+            1.0 - d / FINISH_REWARD_RADIUS,
+        )
+
+        if state.target != aux.DogModelTarget.TUNNEL:
+            reward += BAD_SPECIAL_ACTION
+
     # ramped near ramp (scale with distance)
+    if action == aux.DogModelAction.RAMP:
+        d = distance(state.dog_pos.coord, trigger_point)
+
+        reward += MAX_FINISH_REWARD * max(
+            -1.0,
+            1.0 - d / FINISH_REWARD_RADIUS,
+        )
+
+        if state.target != aux.DogModelTarget.RAMP:
+            reward += BAD_SPECIAL_ACTION
+
     # go2's yaw and tunnel's yaw were close when tunnel was trigged
     # go2's yaw and ramp's yaw were close when ramp was trigged
 
@@ -129,12 +152,12 @@ def calculate_reward(
         reward += COLLISION
 
     # punish repeated movement without getting closer to target
-    ctp = get_trigger_point(state.target, course)
     if (
         previous_action == action
         and state.target == next_state.target
         and (
-            distance(state.dog_pos.coord, ctp) < distance(next_state.dog_pos.coord, ctp)
+            distance(state.dog_pos.coord, trigger_point)
+            < distance(next_state.dog_pos.coord, trigger_point)
         )
     ):
         reward += REPEATED_MOVEMENT_AND_MOVING_AWAY_FROM_TRIGGER_POINT
