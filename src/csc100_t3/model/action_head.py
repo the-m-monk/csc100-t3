@@ -1,7 +1,7 @@
 import torch
 from torch import nn, Tensor
 
-import csc100_t3.model.aux as aux
+import csc100_t3.model.common as aux
 
 
 class DogActionHead(nn.Module):

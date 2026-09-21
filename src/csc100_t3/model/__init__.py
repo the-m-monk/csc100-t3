@@ -1,8 +1,8 @@
 import numpy as np
 from torch import Tensor, nn
 
-from csc100_t3.model import aux, vision, action_head
-
+from csc100_t3.model import vision, action_head
+from csc100_t3.model import common as aux
 
 class DogModel(nn.Module):
     def __init__(self):

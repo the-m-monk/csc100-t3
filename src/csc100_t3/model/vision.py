@@ -4,7 +4,7 @@ from torch import nn
 import torch
 import numpy as np
 
-import csc100_t3.model.aux as aux
+import csc100_t3.model.common as aux
 
 
 class DogVision(nn.Module):
