@@ -408,9 +408,9 @@ class TrainingSimulator:
             case aux.DogModelAction.BACKWARD:
                 self.move_go2(Vec2(-1 * self.MOV_FB, 0), 0)
             case aux.DogModelAction.LEFT:
-                self.move_go2(Vec2(0, 0), -1 * self.MOV_R)
-            case aux.DogModelAction.RIGHT:
                 self.move_go2(Vec2(0, 0), self.MOV_R)
+            case aux.DogModelAction.RIGHT:
+                self.move_go2(Vec2(0, 0), -1 * self.MOV_R)
             case aux.DogModelAction.TUNNEL:
                 self.set_go2_pos(
                     Vec2(
