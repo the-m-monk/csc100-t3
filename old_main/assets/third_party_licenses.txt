@@ -1,5 +1,0 @@
-unitree-go2-robot-dog.obj:
-    author: Ainon3Dtisk
-    source: https://www.printables.com/model/1682727-unitree-go2-robot-dog
-    license: CC BY-NC-SA 4.0 (https://creativecommons.org/licenses/by-nc-sa/4.0/)
-    changes: converted to obj using https://imagetostl.com/convert/file/stl/to/obj

@@ -1,0 +1,4 @@
+rewrite simulator cuz current one is like a trillion lines of nonsense:
+    per model, have 3 action heads for each major state but one shared cnn:
+        bring back discrete actions for tunnelling, ramping and use them to trigger the switch between action heads
+        also bring back finish to trigger exit/shutdown
