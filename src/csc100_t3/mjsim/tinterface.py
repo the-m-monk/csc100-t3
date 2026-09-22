@@ -46,6 +46,9 @@ class StepState:
     ramp_missed: bool
     course_completed: bool
     collided_with: tuple[str, ...]
+    target_steps: int = 0
+    tunnel_steps: int = 0
+    ramp_steps: int = 0
 
 
 @dataclass
@@ -454,6 +457,8 @@ class TrainingSimulator:
 
     def update_course_progress(self):
         state = self.step_state
+        previous_target = state.target
+        state.target_steps += 1
 
         if state.target == aux.DogModelTarget.TUNNEL:
             local = self.world_to_local(
@@ -465,6 +470,9 @@ class TrainingSimulator:
 
             if inside_passage and local.x >= TUNNEL_ENTRY_X:
                 self._tunnel_entered = True
+
+            if self._tunnel_entered:
+                state.tunnel_steps += 1
 
             if (
                 self._tunnel_entered
@@ -493,6 +501,9 @@ class TrainingSimulator:
                 and near_ramp_length
             ):
                 self._ramp_entered = True
+
+            if self._ramp_entered or state.ramp_steps > 0:
+                state.ramp_steps += 1
 
             if (
                 self._ramp_entered
@@ -526,6 +537,9 @@ class TrainingSimulator:
         state.tunnel_entered = self._tunnel_entered
         state.ramp_entered = self._ramp_entered
         state.ramp_summited = self._ramp_summited
+
+        if state.target != previous_target:
+            state.target_steps = 0
 
     def reset(self, rseed: int) -> tuple[StepState, CourseState]:
         self.rseed = rseed

@@ -20,6 +20,21 @@ OSCILLATION_PENALTY = -0.75
 TURN_REWARD_SCALE = 25.0  # increased because turn amount decreased
 MAX_SPECIAL_YAW_REWARD = 10.0
 SPECIAL_YAW_REWARD_RADIUS = math.radians(8)
+OBSTACLE_ENTRY_REWARD = 8.0
+ALIGNED_PROGRESS_REWARD_PER_METRE = 5.0
+ALIGNMENT_CHANGE_REWARD_SCALE = 8.0
+ALIGNMENT_APPROACH_DISTANCE = 1.5
+ALIGNMENT_LATERAL_SCALE = 0.2
+ALIGNMENT_YAW_SCALE = math.radians(20)
+TUNNEL_LATERAL_TOLERANCE = 0.06
+TUNNEL_YAW_TOLERANCE = math.radians(10)
+RAMP_LATERAL_TOLERANCE = 0.04
+RAMP_YAW_TOLERANCE = math.radians(6)
+OBSTACLE_GRACE_STEPS = 25
+TUNNEL_TARGET_GRACE_STEPS = 160
+RAMP_TARGET_GRACE_STEPS = 180
+EXCESS_OBSTACLE_STEP_PENALTY = -0.75
+EXCESS_TARGET_STEP_PENALTY = -0.25
 
 
 def distance(a: ti.Vec2, b: ti.Vec2):
@@ -110,6 +125,29 @@ def special_yaw_reward(
     )
 
 
+def alignment_quality(local: ti.Vec2, dog_yaw: float, axis_yaw: float, center_y: float):
+    lateral_error = abs(local.y - center_y)
+    yaw_error = abs(angle_diff(dog_yaw, axis_yaw))
+    return 1.0 / (
+        1.0
+        + lateral_error / ALIGNMENT_LATERAL_SCALE
+        + yaw_error / ALIGNMENT_YAW_SCALE
+    )
+
+
+def safe_alignment_score(
+    local: ti.Vec2,
+    dog_yaw: float,
+    axis_yaw: float,
+    center_y: float,
+    lateral_tolerance: float,
+    yaw_tolerance: float,
+):
+    lateral_score = max(0.0, 1.0 - abs(local.y - center_y) / lateral_tolerance)
+    yaw_score = max(0.0, 1.0 - abs(angle_diff(dog_yaw, axis_yaw)) / yaw_tolerance)
+    return lateral_score * yaw_score
+
+
 def calculate_reward(
     state: ti.StepState,
     next_state: ti.StepState,
@@ -180,7 +218,76 @@ def calculate_reward(
     if previous_action is not None and opposites.get(action) == previous_action:
         reward += OSCILLATION_PENALTY
 
-    if state.target == next_state.target:
+    near_obstacle = False
+    if state.target in (aux.DogModelTarget.TUNNEL, aux.DogModelTarget.RAMP):
+        if state.target == aux.DogModelTarget.TUNNEL:
+            origin = course.tunnel_coord
+            axis_yaw = course.tunnel_yaw
+            entry_x = ti.TUNNEL_ENTRY_X
+            exit_x = ti.TUNNEL_EXIT_X
+            center_y = ti.TUNNEL_CENTER_Y
+            lateral_tolerance = TUNNEL_LATERAL_TOLERANCE
+            yaw_tolerance = TUNNEL_YAW_TOLERANCE
+            entered_now = state.tunnel_steps == 0 and next_state.tunnel_steps == 1
+            obstacle_steps = next_state.tunnel_steps
+            target_grace_steps = TUNNEL_TARGET_GRACE_STEPS
+        else:
+            origin = course.ramp_coord
+            axis_yaw = course.ramp_yaw
+            entry_x = ti.RAMP_ENTRY_X
+            exit_x = ti.RAMP_EXIT_X
+            center_y = ti.RAMP_CENTER_Y
+            lateral_tolerance = RAMP_LATERAL_TOLERANCE
+            yaw_tolerance = RAMP_YAW_TOLERANCE
+            entered_now = state.ramp_steps == 0 and next_state.ramp_steps == 1
+            obstacle_steps = next_state.ramp_steps
+            target_grace_steps = RAMP_TARGET_GRACE_STEPS
+
+        old_local = ti.TrainingSimulator.world_to_local(
+            origin, axis_yaw, state.dog_pos.coord
+        )
+        new_local = ti.TrainingSimulator.world_to_local(
+            origin, axis_yaw, next_state.dog_pos.coord
+        )
+        safe_alignment = safe_alignment_score(
+            new_local,
+            next_state.dog_pos.yaw,
+            axis_yaw,
+            center_y,
+            lateral_tolerance,
+            yaw_tolerance,
+        )
+
+        if entered_now and not next_state.collided_with and not next_state.ramp_fell:
+            reward += OBSTACLE_ENTRY_REWARD * safe_alignment
+
+        if obstacle_steps > 0:
+            old_clamped_x = min(exit_x, max(entry_x, old_local.x))
+            new_clamped_x = min(exit_x, max(entry_x, new_local.x))
+            forward_progress = max(0.0, new_clamped_x - old_clamped_x)
+            reward += ALIGNED_PROGRESS_REWARD_PER_METRE * forward_progress * safe_alignment
+
+        if obstacle_steps > OBSTACLE_GRACE_STEPS:
+            reward += EXCESS_OBSTACLE_STEP_PENALTY
+
+        if state.target_steps + 1 > target_grace_steps:
+            reward += EXCESS_TARGET_STEP_PENALTY
+
+        near_obstacle = (
+            entry_x - ALIGNMENT_APPROACH_DISTANCE
+            <= old_local.x
+            <= exit_x + OBSTACLE_CLEARANCE
+        )
+        if near_obstacle and state.target == next_state.target:
+            old_alignment = alignment_quality(
+                old_local, state.dog_pos.yaw, axis_yaw, center_y
+            )
+            new_alignment = alignment_quality(
+                new_local, next_state.dog_pos.yaw, axis_yaw, center_y
+            )
+            reward += ALIGNMENT_CHANGE_REWARD_SCALE * (new_alignment - old_alignment)
+
+    if state.target == next_state.target and not near_obstacle:
         old_angle = abs(
             angle_to_trigger(
                 state.dog_pos,
