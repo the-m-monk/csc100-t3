@@ -19,3 +19,13 @@ class DogModel(nn.Module):
         last_action: aux.DogModelAction | None,
     ) -> Tensor:
         return self.action_head(self.cnn(fb), target, last_action)
+
+    def forward_batch(
+        self,
+        frames: np.ndarray,
+        targets: Tensor,
+        last_action_indices: Tensor,
+    ) -> Tensor:
+        return self.action_head.forward_batch(
+            self.cnn(frames), targets, last_action_indices
+        )

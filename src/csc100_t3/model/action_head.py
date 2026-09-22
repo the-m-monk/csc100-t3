@@ -58,3 +58,27 @@ class DogActionHead(nn.Module):
 
         x = torch.cat((vision, target, last_action_input))
         return self.mlp(x)
+
+    def forward_batch(
+        self,
+        vision: Tensor,
+        targets: Tensor,
+        last_action_indices: Tensor,
+    ) -> Tensor:
+        if vision.ndim != 2 or vision.shape[1] != aux.VISION_OUT_LEN:
+            raise ValueError(
+                f"vision must have shape (N, {aux.VISION_OUT_LEN}), "
+                f"got {tuple(vision.shape)}"
+            )
+
+        target_input = nn.functional.one_hot(
+            targets,
+            num_classes=len(aux.DogModelTarget),
+        ).float()
+        last_action_input = nn.functional.one_hot(
+            last_action_indices,
+            num_classes=len(aux.DogModelAction) + 1,
+        ).float()
+
+        x = torch.cat((vision, target_input, last_action_input), dim=1)
+        return self.mlp(x)

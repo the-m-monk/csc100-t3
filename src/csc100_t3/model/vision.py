@@ -86,27 +86,26 @@ class DogVision(nn.Module):
     ):
         return math.floor((input_size + 2 * padding - kernel_size) / stride) + 1
 
-    def forward(self, fb: np.darray):
+    def forward(self, fb: np.ndarray):
         fb = torch.from_numpy(fb)
 
-        expected_shape = (
+        frame_shape = (
             aux.VISION_HEIGHT,
             aux.VISION_WIDTH,
             aux.VISION_COLOUR_CHANNELS,
         )
+        single_frame = fb.ndim == 3
+        expected_shape = frame_shape if single_frame else (None, *frame_shape)
 
-        if tuple(fb.shape) != expected_shape:
+        if fb.shape[-3:] != frame_shape or fb.ndim not in (3, 4):
             raise ValueError(
                 f"framebuffer must have shape {expected_shape}, got {tuple(fb.shape)}"
             )
 
-        # hwc to chw
-        fb = fb.permute(2, 0, 1)
+        if single_frame:
+            fb = fb.unsqueeze(0)
 
-        # add batch prefix (1)
-        fb = fb.unsqueeze(0)
-
-        fb = fb.float() / 255.0
+        fb = fb.permute(0, 3, 1, 2).float() / 255.0
 
         output = self.head(self.conv(fb))
-        return output.squeeze(0)
+        return output.squeeze(0) if single_frame else output
