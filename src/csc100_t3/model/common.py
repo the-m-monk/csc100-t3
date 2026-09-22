@@ -33,6 +33,3 @@ class DogModelAction(IntEnum):
     BACKWARD = 2
     LEFT = 3
     RIGHT = 4
-    TUNNEL = 5
-    RAMP = 6
-    FINISHED = 7

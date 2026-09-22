@@ -186,9 +186,7 @@ def run_new(model_dir: Path):
                 course,
                 action,
                 looked,
-                sim.MOV_R,
                 old_state.last_action,
-                sim.is_keepout_respected,
             )
 
             replay_buffer.add(

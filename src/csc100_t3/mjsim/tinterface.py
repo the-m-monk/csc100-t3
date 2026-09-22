@@ -11,7 +11,24 @@ import numpy as np
 os.environ["MUJOCO_GL"] = "egl"
 import mujoco
 
-from csc100_t3.model import aux, vision
+from csc100_t3.model import aux
+
+
+TUNNEL_ENTRY_X = 0.0
+TUNNEL_EXIT_X = 1.3
+TUNNEL_CENTER_Y = 0.31
+TUNNEL_INNER_MIN_Y = 0.05
+TUNNEL_INNER_MAX_Y = 0.57
+
+RAMP_ENTRY_X = -0.55
+RAMP_EXIT_X = 0.55
+RAMP_CENTER_Y = 0.23
+RAMP_MIN_Y = 0.0
+RAMP_MAX_Y = 0.46
+RAMP_SUMMIT_HALF_LENGTH = 0.11
+RAMP_SUMMIT_MIN_HEIGHT = 0.08
+
+FINISH_RADIUS = 0.5
 
 
 @dataclass
@@ -22,6 +39,13 @@ class StepState:
     remaining_steps: int
     done: bool
     last_action: aux.DogModelAction | None
+    tunnel_entered: bool
+    ramp_entered: bool
+    ramp_summited: bool
+    ramp_fell: bool
+    ramp_missed: bool
+    course_completed: bool
+    collided_with: tuple[str, ...]
 
 
 @dataclass
@@ -87,13 +111,13 @@ class TrainingSimulator:
         self.CHEST_KEEPOUT = (0.7 / 2) + self.KEEPOUT_RADIAL_SPACING
         self.FINISH_KEEPOUT = (0.3 / 2) + self.KEEPOUT_RADIAL_SPACING
 
-        self.MIN_SPACING = 2
+        self.MIN_SPACING = 3
 
         self.START_TO_TUNNEL_VARIANCE = {
             "dmin": max(self.DOG_KEEPOUT + self.TUNNEL_KEEPOUT, self.MIN_SPACING),
             "dmax": 8,
-            "ymin": math.radians(-70),
-            "ymax": math.radians(70),
+            "ymin": math.radians(-50),
+            "ymax": math.radians(50),
         }
 
         self.TUNNEL_TO_RAMP_VARIANCE = {
@@ -121,10 +145,11 @@ class TrainingSimulator:
         # https://github.com/Yaocheng-yan/Unitree-go2-Navi/blob/main/技术文档.md
         self.MOV_FB = 0.1  # not framebuffer, forward and back
         self.MOV_R = math.radians(1)  # likely achievable IRL with imu/odometry feedback
+        self.PHYSICS_STEPS_PER_ACTION = 50
 
         self.rseed: int = 0
         self.RESET_COURSE_WATCHDOG_INIT = 100
-        self.MAX_STEPS = 300
+        self.MAX_STEPS = 800
         self.step_state = StepState(
             DogPos(self.DOG_START_COORD, 0),
             np.array([]),
@@ -132,18 +157,34 @@ class TrainingSimulator:
             0,
             False,
             None,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            (),
         )
 
-        self.POST_OBSTACLE_GAP = 0.3
-        dog_rear_x = self.mesh_x_bounds("go2_body_mesh")[0]
-        self.TUNNEL_EXIT_OFFSET = (
-            self.mesh_x_bounds("tunnel_body")[1] - dog_rear_x + self.POST_OBSTACLE_GAP
-        )
-        self.RAMP_EXIT_OFFSET = (
-            self.mesh_x_bounds("ramp_body")[1] - dog_rear_x + self.POST_OBSTACLE_GAP
-        )
+        dog_bounds = self.mesh_bounds("go2_body_mesh")
+        self.DOG_FRONT_X = dog_bounds[1][0]
+        self.DOG_REAR_X = dog_bounds[0][0]
 
-    def mesh_x_bounds(self, geom_name: str) -> tuple[float, float]:
+        self._tunnel_entered = False
+        self._ramp_entered = False
+        self._ramp_summited = False
+        self._ramp_miss_reported = False
+
+        self.PENALISED_COLLISION_GEOMS = {
+            "chest_body",
+            "tunnel_left_wall_collision",
+            "tunnel_right_wall_collision",
+            "tunnel_roof_collision",
+        }
+        self._penalised_contacts_during_advance: set[str] = set()
+        self._ramp_contact_during_advance = False
+
+    def mesh_bounds(self, geom_name: str) -> tuple[np.ndarray, np.ndarray]:
         geom = self.scene.geom(geom_name)
         mesh_id = geom.dataid[0]
         first = self.scene.mesh_vertadr[mesh_id]
@@ -152,8 +193,24 @@ class TrainingSimulator:
 
         rotation = np.empty(9)
         mujoco.mju_quat2Mat(rotation, geom.quat)
-        x = vertices @ rotation.reshape(3, 3)[0] + geom.pos[0]
-        return float(x.min()), float(x.max())
+        vertices = vertices @ rotation.reshape(3, 3).T + geom.pos
+        return vertices.min(axis=0), vertices.max(axis=0)
+
+    @staticmethod
+    def local_to_world(origin: Vec2, yaw: float, local: Vec2) -> Vec2:
+        return Vec2(
+            origin.x + math.cos(yaw) * local.x - math.sin(yaw) * local.y,
+            origin.y + math.sin(yaw) * local.x + math.cos(yaw) * local.y,
+        )
+
+    @staticmethod
+    def world_to_local(origin: Vec2, yaw: float, world: Vec2) -> Vec2:
+        dx = world.x - origin.x
+        dy = world.y - origin.y
+        return Vec2(
+            math.cos(yaw) * dx + math.sin(yaw) * dy,
+            -math.sin(yaw) * dx + math.cos(yaw) * dy,
+        )
 
     def place_relative(
         self,
@@ -298,7 +355,8 @@ class TrainingSimulator:
         go2_joint = self.scene.joint("go2_joint")
         go2_qadr = self.scene.jnt_qposadr[go2_joint.id]
 
-        w, x, qy, z = self.data.qpos[go2_qadr + 3 : go2_qadr + 7]
+        quat = self.data.qpos[go2_qadr + 3 : go2_qadr + 7].copy()
+        w, x, qy, z = quat
 
         yaw = math.atan2(
             2.0 * (w * z + x * qy),
@@ -311,18 +369,20 @@ class TrainingSimulator:
         self.data.qpos[go2_qadr + 0] += dx
         self.data.qpos[go2_qadr + 1] += dy
 
-        yaw += y
+        if y:
+            yaw_delta = np.array(
+                [
+                    math.cos(y / 2),
+                    0,
+                    0,
+                    math.sin(y / 2),
+                ]
+            )
+            rotated = np.empty(4)
+            mujoco.mju_mulQuat(rotated, yaw_delta, quat)
+            self.data.qpos[go2_qadr + 3 : go2_qadr + 7] = rotated
 
-        self.data.qpos[go2_qadr + 3 : go2_qadr + 7] = [
-            math.cos(yaw / 2),
-            0,
-            0,
-            math.sin(yaw / 2),
-        ]
-
-        self.step_state.dog_pos.coord.x += dx
-        self.step_state.dog_pos.coord.y += dy
-        self.step_state.dog_pos.yaw = yaw
+        self.clear_go2_velocity()
 
     # absolute
     def clear_go2_velocity(self):
@@ -349,12 +409,135 @@ class TrainingSimulator:
         self.step_state.dog_pos.coord.y = d.y
         self.step_state.dog_pos.yaw = y
 
+    def advance_physics(self):
+        self._penalised_contacts_during_advance = set()
+        self._ramp_contact_during_advance = False
+
+        for _ in range(self.PHYSICS_STEPS_PER_ACTION):
+            mujoco.mj_step(self.scene, self.data)
+
+            for index in range(self.data.ncon):
+                contact = self.data.contact[index]
+                geom_names = {
+                    self.scene.geom(int(contact.geom1)).name,
+                    self.scene.geom(int(contact.geom2)).name,
+                }
+                if "go2_body_mesh" not in geom_names:
+                    continue
+
+                self._penalised_contacts_during_advance.update(
+                    geom_names & self.PENALISED_COLLISION_GEOMS
+                )
+                if "ramp_body" in geom_names:
+                    self._ramp_contact_during_advance = True
+
+    def sync_go2_pos(self):
+        go2_joint = self.scene.joint("go2_joint")
+        go2_qadr = self.scene.jnt_qposadr[go2_joint.id]
+        qpos = self.data.qpos[go2_qadr : go2_qadr + 7]
+        w, x, qy, z = qpos[3:7]
+
+        self.step_state.dog_pos.coord.x = float(qpos[0])
+        self.step_state.dog_pos.coord.y = float(qpos[1])
+        self.step_state.dog_pos.yaw = math.atan2(
+            2.0 * (w * z + x * qy),
+            1.0 - 2.0 * (qy * qy + z * z),
+        )
+
+    def go2_height(self) -> float:
+        go2_joint = self.scene.joint("go2_joint")
+        go2_qadr = self.scene.jnt_qposadr[go2_joint.id]
+        return float(self.data.qpos[go2_qadr + 2])
+
+    def penalised_contacts(self) -> tuple[str, ...]:
+        return tuple(sorted(self._penalised_contacts_during_advance))
+
+    def update_course_progress(self):
+        state = self.step_state
+
+        if state.target == aux.DogModelTarget.TUNNEL:
+            local = self.world_to_local(
+                self.course_state.tunnel_coord,
+                self.course_state.tunnel_yaw,
+                state.dog_pos.coord,
+            )
+            inside_passage = TUNNEL_INNER_MIN_Y <= local.y <= TUNNEL_INNER_MAX_Y
+
+            if inside_passage and local.x >= TUNNEL_ENTRY_X:
+                self._tunnel_entered = True
+
+            if (
+                self._tunnel_entered
+                and inside_passage
+                and local.x >= TUNNEL_EXIT_X - self.DOG_REAR_X
+            ):
+                state.target = aux.DogModelTarget.RAMP
+                self._ramp_miss_reported = False
+
+        elif state.target == aux.DogModelTarget.RAMP:
+            local = self.world_to_local(
+                self.course_state.ramp_coord,
+                self.course_state.ramp_yaw,
+                state.dog_pos.coord,
+            )
+            over_ramp_width = RAMP_MIN_Y <= local.y <= RAMP_MAX_Y
+            near_ramp_length = (
+                RAMP_ENTRY_X - self.DOG_FRONT_X
+                <= local.x
+                <= RAMP_EXIT_X - self.DOG_REAR_X
+            )
+
+            if (
+                self._ramp_contact_during_advance
+                and over_ramp_width
+                and near_ramp_length
+            ):
+                self._ramp_entered = True
+
+            if (
+                self._ramp_entered
+                and abs(local.x) <= RAMP_SUMMIT_HALF_LENGTH
+                and self.go2_height() >= RAMP_SUMMIT_MIN_HEIGHT
+            ):
+                self._ramp_summited = True
+
+            if self._ramp_entered and near_ramp_length and not over_ramp_width:
+                state.ramp_fell = True
+                self._ramp_entered = False
+                self._ramp_summited = False
+
+            ramp_clear_x = RAMP_EXIT_X - self.DOG_REAR_X
+            if self._ramp_summited and local.x >= ramp_clear_x:
+                state.target = aux.DogModelTarget.TILE
+            elif local.x >= ramp_clear_x and not self._ramp_miss_reported:
+                state.ramp_missed = True
+                self._ramp_miss_reported = True
+
+            if local.x < RAMP_ENTRY_X:
+                self._ramp_miss_reported = False
+
+        elif state.target == aux.DogModelTarget.TILE:
+            dx = state.dog_pos.coord.x - self.course_state.finish_tile_coord.x
+            dy = state.dog_pos.coord.y - self.course_state.finish_tile_coord.y
+            if math.hypot(dx, dy) <= FINISH_RADIUS:
+                state.course_completed = True
+                state.done = True
+
+        state.tunnel_entered = self._tunnel_entered
+        state.ramp_entered = self._ramp_entered
+        state.ramp_summited = self._ramp_summited
+
     def reset(self, rseed: int) -> tuple[StepState, CourseState]:
         self.rseed = rseed
         random.seed(self.rseed)
         np.random.seed(self.rseed)
 
         mujoco.mj_resetData(self.scene, self.data)
+
+        self._tunnel_entered = False
+        self._ramp_entered = False
+        self._ramp_summited = False
+        self._ramp_miss_reported = False
 
         self.dog_pos = DogPos(
             Vec2(self.DOG_START_COORD.x, self.DOG_START_COORD.y),
@@ -375,32 +558,42 @@ class TrainingSimulator:
 
             self.reset_course()
 
-        mujoco.mj_step(self.scene, self.data)
+        self.step_state = StepState(
+            self.dog_pos,
+            np.array([]),
+            aux.DogModelTarget.TUNNEL,
+            self.MAX_STEPS,
+            False,
+            None,
+            False,
+            False,
+            False,
+            False,
+            False,
+            False,
+            (),
+        )
+
+        self.clear_go2_velocity()
+        self.advance_physics()
+        self.sync_go2_pos()
 
         self.cam_renderer.update_scene(
             self.data,
             camera="go2_camera",
         )
-
-        self.step_state = StepState(
-            self.dog_pos,
-            self.cam_renderer.render(),
-            aux.DogModelTarget.TUNNEL,
-            self.MAX_STEPS,
-            False,
-            None,
-        )
+        self.step_state.fb = self.cam_renderer.render()
 
         return (self.step_state, self.course_state)
 
     def step(self, action: aux.DogModelAction) -> StepState:
-        if self.step_state.remaining_steps > 0:
-            self.step_state.remaining_steps -= 1
-        else:
-            self.step_state.done = True
-
         if self.step_state.done:
             return self.step_state
+
+        self.step_state.remaining_steps -= 1
+        self.step_state.ramp_fell = False
+        self.step_state.ramp_missed = False
+        self.step_state.collided_with = ()
 
         match action:
             case aux.DogModelAction.FORWARD:
@@ -411,37 +604,14 @@ class TrainingSimulator:
                 self.move_go2(Vec2(0, 0), self.MOV_R)
             case aux.DogModelAction.RIGHT:
                 self.move_go2(Vec2(0, 0), -1 * self.MOV_R)
-            case aux.DogModelAction.TUNNEL:
-                self.set_go2_pos(
-                    Vec2(
-                        self.course_state.tunnel_coord.x
-                        + math.cos(self.course_state.tunnel_yaw)
-                        * self.TUNNEL_EXIT_OFFSET,
-                        self.course_state.tunnel_coord.y
-                        + math.sin(self.course_state.tunnel_yaw)
-                        * self.TUNNEL_EXIT_OFFSET,
-                    ),
-                    self.course_state.tunnel_yaw,
-                )
-                self.step_state.target = aux.DogModelTarget.RAMP
-            case aux.DogModelAction.RAMP:
-                self.set_go2_pos(
-                    Vec2(
-                        self.course_state.ramp_coord.x
-                        + math.cos(self.course_state.ramp_yaw) * self.RAMP_EXIT_OFFSET,
-                        self.course_state.ramp_coord.y
-                        + math.sin(self.course_state.ramp_yaw) * self.RAMP_EXIT_OFFSET,
-                    ),
-                    self.course_state.ramp_yaw,
-                )
-                self.step_state.target = aux.DogModelTarget.TILE
-            case aux.DogModelAction.FINISHED:
-                self.step_state.remaining_steps = 0
-                self.step_state.done = True
 
-        mujoco.mj_step(self.scene, self.data)
-        if action in (aux.DogModelAction.TUNNEL, aux.DogModelAction.RAMP):
-            self.clear_go2_velocity()
+        self.advance_physics()
+        self.sync_go2_pos()
+        self.step_state.collided_with = self.penalised_contacts()
+        self.update_course_progress()
+
+        if self.step_state.remaining_steps <= 0:
+            self.step_state.done = True
 
         self.cam_renderer.update_scene(
             self.data,

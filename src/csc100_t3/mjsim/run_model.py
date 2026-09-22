@@ -69,11 +69,6 @@ def run(model_path: Path):
 
                 next_action_time = now + ACTION_INTERVAL
 
-            mujoco.mj_step(
-                sim.scene,
-                sim.data,
-            )
-
             viewer.sync()
 
             time.sleep(sim.scene.opt.timestep)
