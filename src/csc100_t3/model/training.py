@@ -141,7 +141,17 @@ def save_checkpoint(
     )
 
 
-def run_new(model_dir: Path):
+def load_base_weights(online_model: model.DogModel, weights_path: Path):
+    saved = torch.load(weights_path, map_location="cpu", weights_only=True)
+    state_dict = saved["online_model"] if "online_model" in saved else saved
+    online_model.load_state_dict(state_dict)
+
+
+def run_new(
+    model_dir: Path,
+    weights_path: Path | None = None,
+    starting_epsilon: float = 1.0,
+):
     replay_buffer = ReplayBuffer(
         storage=ListStorage(max_size=50_000),
         batch_size=64,
@@ -149,6 +159,9 @@ def run_new(model_dir: Path):
     )
 
     online_model = model.DogModel()
+    if weights_path is not None:
+        load_base_weights(online_model, weights_path)
+
     target_model = copy.deepcopy(online_model)
     target_model.eval()
     target_model.requires_grad_(False)
@@ -158,7 +171,7 @@ def run_new(model_dir: Path):
         lr=1e-4,
     )
 
-    epsilon = 1.0
+    epsilon = starting_epsilon
     gamma = 0.99
 
     sim = ti.TrainingSimulator()
