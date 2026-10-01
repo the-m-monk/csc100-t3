@@ -9,7 +9,7 @@ class DogActionHead(nn.Module):
         super().__init__()
 
         input_size = (
-            aux.VISION_OUT_LEN + len(aux.DogModelAction) + 1
+            aux.VISION_OUT_LEN + aux.MAGI_ACTION_COUNT + 1
         )  # +1 for "no previous action"
 
         self.mlp = nn.Sequential(
@@ -25,23 +25,19 @@ class DogActionHead(nn.Module):
             nn.ReLU(),
             nn.Linear(
                 aux.ACTOR_HIDDEN_SIZE,
-                len(aux.DogModelAction),
+                aux.MAGI_ACTION_COUNT,
             ),
         )
 
     def forward(
         self,
         vision: Tensor,
-        last_action: aux.DogModelAction | None,
+        last_action_index: int | None,
     ) -> Tensor:
-        last_action_index = (
-            0
-            if last_action is None
-            else list(aux.DogModelAction).index(last_action) + 1
-        )
+        one_hot_index = 0 if last_action_index is None else last_action_index + 1
         last_action_input = nn.functional.one_hot(
-            torch.tensor(last_action_index, device=vision.device),
-            num_classes=len(aux.DogModelAction) + 1,
+            torch.tensor(one_hot_index, device=vision.device),
+            num_classes=aux.MAGI_ACTION_COUNT + 1,
         ).float()
 
         if vision.shape != (aux.VISION_OUT_LEN,):
@@ -52,3 +48,20 @@ class DogActionHead(nn.Module):
 
         x = torch.cat((vision, last_action_input))
         return self.mlp(x)
+
+    def forward_batch(
+        self,
+        vision: Tensor,
+        last_action_indices: Tensor,
+    ) -> Tensor:
+        if vision.ndim != 2 or vision.shape[1] != aux.VISION_OUT_LEN:
+            raise ValueError(
+                f"vision must have shape (N, {aux.VISION_OUT_LEN}), "
+                f"got {tuple(vision.shape)}"
+            )
+
+        last_action_input = nn.functional.one_hot(
+            last_action_indices,
+            num_classes=aux.MAGI_ACTION_COUNT + 1,
+        ).float()
+        return self.mlp(torch.cat((vision, last_action_input), dim=1))

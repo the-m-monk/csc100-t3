@@ -45,3 +45,29 @@ MAGI_TARGETS = (
     DogModelTarget.RAMP,
     DogModelTarget.TILE,
 )
+
+MAGI_ACTIONS = (
+    (
+        DogModelAction.FORWARD,
+        DogModelAction.BACKWARD,
+        DogModelAction.LEFT,
+        DogModelAction.RIGHT,
+        DogModelAction.TUNNEL,
+    ),
+    (
+        DogModelAction.FORWARD,
+        DogModelAction.BACKWARD,
+        DogModelAction.LEFT,
+        DogModelAction.RIGHT,
+        DogModelAction.RAMP,
+    ),
+    (
+        DogModelAction.FORWARD,
+        DogModelAction.BACKWARD,
+        DogModelAction.LEFT,
+        DogModelAction.RIGHT,
+        DogModelAction.FINISHED,
+    ),
+)
+
+MAGI_ACTION_COUNT = len(MAGI_ACTIONS[0])
