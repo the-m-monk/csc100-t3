@@ -1,7 +1,7 @@
+'''
 import math
 
-from csc100_t3.mjsim import tinterface as ti
-from csc100_t3.model import aux
+
 
 
 MAX_FINISH_REWARD = 30.0
@@ -227,3 +227,19 @@ def calculate_reward(
         reward += REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT
 
     return reward
+'''
+
+from csc100_t3.mjsim import tinterface as ti
+from csc100_t3.model import aux
+
+def calculate_reward(
+    state: ti.StepState,
+    next_state: ti.StepState,
+    course: ti.CourseState,
+    action: aux.DogModelAction,
+    looked,
+    sim_mov_r,
+    previous_action: aux.DogModelAction | None,
+    ikr,
+):
+    return 0.0
