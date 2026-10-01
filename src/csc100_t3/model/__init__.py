@@ -9,13 +9,20 @@ class DogModel(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.cnn = vision.DogVision()
-        self.action_head = action_head.DogActionHead()
+        self.magi = [
+            {"cnn": vision.DogVision(), "action_head": action_head.DogActionHead()},
+            {"cnn": vision.DogVision(), "action_head": action_head.DogActionHead()},
+            {"cnn": vision.DogVision(), "action_head": action_head.DogActionHead()},
+        ]
 
     def forward(
         self,
+        magi_idx: int,
         fb: np.ndarray,
-        target: aux.DogModelTarget,
         last_action: aux.DogModelAction | None,
     ) -> Tensor:
-        return self.action_head(self.cnn(fb), target, last_action)
+        wm = self.magi[magi_idx]
+
+        return wm["action_head"](
+            wm["cnn"](fb), last_action
+        )

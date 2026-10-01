@@ -1,5 +1,5 @@
 main2:
-    modify "model" to actually use 3 identical models, one for each obstacle
+    modify "model" to actually use 3 identical models, one for each obstacle (WIP)
     make sure movement variance is back to the old conservative value
     modify reward for new 3 headed model system
     modify action space to only have one special action
