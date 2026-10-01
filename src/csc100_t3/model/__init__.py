@@ -23,6 +23,4 @@ class DogModel(nn.Module):
     ) -> Tensor:
         wm = self.magi[magi_idx]
 
-        return wm["action_head"](
-            wm["cnn"](fb), last_action
-        )
+        return wm["action_head"](wm["cnn"](fb), last_action)

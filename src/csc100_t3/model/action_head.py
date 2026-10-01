@@ -9,8 +9,8 @@ class DogActionHead(nn.Module):
         super().__init__()
 
         input_size = (
-            aux.VISION_OUT_LEN + len(aux.DogModelTarget) + len(aux.DogModelAction) + 1
-        )
+            aux.VISION_OUT_LEN + len(aux.DogModelAction) + 1
+        )  # +1 for "no previous action"
 
         self.mlp = nn.Sequential(
             nn.Linear(
@@ -32,14 +32,8 @@ class DogActionHead(nn.Module):
     def forward(
         self,
         vision: Tensor,
-        target: aux.DogModelTarget,
         last_action: aux.DogModelAction | None,
     ) -> Tensor:
-        target = nn.functional.one_hot(
-            torch.tensor(target.value, device=vision.device),
-            num_classes=len(aux.DogModelTarget),
-        ).float()
-
         last_action_index = (
             0
             if last_action is None
@@ -56,5 +50,5 @@ class DogActionHead(nn.Module):
                 f"got {tuple(vision.shape)}"
             )
 
-        x = torch.cat((vision, target, last_action_input))
+        x = torch.cat((vision, last_action_input))
         return self.mlp(x)

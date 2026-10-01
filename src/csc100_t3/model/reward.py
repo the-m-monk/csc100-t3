@@ -1,4 +1,4 @@
-'''
+"""
 import math
 
 
@@ -227,10 +227,11 @@ def calculate_reward(
         reward += REPEATED_MOVEMENT_AND_NOT_APPROACHING_TRIGGER_POINT
 
     return reward
-'''
+"""
 
 from csc100_t3.mjsim import tinterface as ti
 from csc100_t3.model import aux
+
 
 def calculate_reward(
     state: ti.StepState,
