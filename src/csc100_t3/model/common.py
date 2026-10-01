@@ -37,6 +37,7 @@ class DogModelAction(IntEnum):
     RAMP = 6
     FINISHED = 7
 
+
 # MAGI
 
 MAGI_TARGETS = (

@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+import math
 
 
 def empty_dir(value: str) -> Path:
@@ -14,6 +15,19 @@ def empty_dir(value: str) -> Path:
     return path
 
 
+def epsilon_probability(value: str) -> float:
+    try:
+        epsilon = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "epsilon must be a number between 0 and 1"
+        ) from error
+
+    if not math.isfinite(epsilon) or not 0 <= epsilon <= 1:
+        raise argparse.ArgumentTypeError("epsilon must be a number between 0 and 1")
+    return epsilon
+
+
 def main():
     parser = argparse.ArgumentParser(prog="csc100_t3")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -24,6 +38,23 @@ def main():
 
     train_new = sub.add_parser("train_new")
     train_new.add_argument("--path", type=empty_dir, required=True)
+    train_new.add_argument(
+        "--weights",
+        type=Path,
+        help="path to the checkpoint weights used to initialise the magi",
+    )
+    train_new.add_argument(
+        "--magi",
+        type=int,
+        choices=(0, 1, 2),
+        help="train only 0=tunnel, 1=ramp, or 2=tile (default: train all)",
+    )
+    train_new.add_argument(
+        "--epsilon",
+        type=epsilon_probability,
+        default=1.0,
+        help="starting exploration probability (default: 1.0)",
+    )
 
     sim_run_model = sub.add_parser("sim_run_model")
     sim_run_model.add_argument("--path", type=Path, required=True)
@@ -47,7 +78,12 @@ def main():
         case "train_new":
             from csc100_t3.model import training
 
-            training.run_new(args.path)
+            training.run_new(
+                args.path,
+                weights_path=args.weights,
+                train_magi=args.magi,
+                starting_epsilon=args.epsilon,
+            )
 
         case "sim_run_model":
             import csc100_t3.mjsim.run_model as run_model
