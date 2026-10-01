@@ -71,3 +71,4 @@ MAGI_ACTIONS = (
 )
 
 MAGI_ACTION_COUNT = len(MAGI_ACTIONS[0])
+TARGET_TO_MAGI = {target: magi_idx for magi_idx, target in enumerate(MAGI_TARGETS)}

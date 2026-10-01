@@ -143,6 +143,9 @@ class TrainingSimulator:
             self.mesh_x_bounds("ramp_body")[1] - dog_rear_x + self.POST_OBSTACLE_GAP
         )
 
+    def close(self):
+        self.cam_renderer.close()
+
     def mesh_x_bounds(self, geom_name: str) -> tuple[float, float]:
         geom = self.scene.geom(geom_name)
         mesh_id = geom.dataid[0]
@@ -261,10 +264,10 @@ class TrainingSimulator:
     def is_keepout_respected(
         self, dog_pos_vec2=None, course=None, disable_radial_spacing=False
     ):
-        if dog_pos_vec2 == None:
+        if dog_pos_vec2 is None:
             dog_pos_vec2 = self.DOG_START_COORD
 
-        if course == None:
+        if course is None:
             course = self.course_state
 
         drs = 0
@@ -290,6 +293,32 @@ class TrainingSimulator:
 
                 if mksq > dsq:
                     return False
+
+        return True
+
+    def is_navigation_keepout_respected(
+        self,
+        dog_pos: Vec2,
+        course: CourseState,
+        target: aux.DogModelTarget,
+    ) -> bool:
+        obstacles = (
+            (aux.DogModelTarget.TUNNEL, course.tunnel_coord, self.TUNNEL_KEEPOUT),
+            (aux.DogModelTarget.RAMP, course.ramp_coord, self.RAMP_KEEPOUT),
+            (aux.DogModelTarget.BLOCK, course.chest_coord, self.CHEST_KEEPOUT),
+            (aux.DogModelTarget.TILE, course.finish_tile_coord, self.FINISH_KEEPOUT),
+        )
+        dog_radius = self.DOG_KEEPOUT - self.KEEPOUT_RADIAL_SPACING
+
+        for obstacle_target, obstacle_coord, obstacle_keepout in obstacles:
+            if obstacle_target == target:
+                continue
+
+            obstacle_radius = obstacle_keepout - self.KEEPOUT_RADIAL_SPACING
+            dx = dog_pos.x - obstacle_coord.x
+            dy = dog_pos.y - obstacle_coord.y
+            if dx**2 + dy**2 < (dog_radius + obstacle_radius) ** 2:
+                return False
 
         return True
 
@@ -349,6 +378,64 @@ class TrainingSimulator:
         self.step_state.dog_pos.coord.y = d.y
         self.step_state.dog_pos.yaw = y
 
+    def subcourse_start(self, target: aux.DogModelTarget) -> DogPos:
+        match target:
+            case aux.DogModelTarget.TUNNEL:
+                return DogPos(
+                    Vec2(self.DOG_START_COORD.x, self.DOG_START_COORD.y),
+                    0,
+                )
+            case aux.DogModelTarget.RAMP:
+                coord = Vec2(
+                    self.course_state.tunnel_coord.x
+                    + math.cos(self.course_state.tunnel_yaw) * self.TUNNEL_EXIT_OFFSET,
+                    self.course_state.tunnel_coord.y
+                    + math.sin(self.course_state.tunnel_yaw) * self.TUNNEL_EXIT_OFFSET,
+                )
+                return DogPos(coord, self.course_state.tunnel_yaw)
+            case aux.DogModelTarget.TILE:
+                coord = Vec2(
+                    self.course_state.ramp_coord.x
+                    + math.cos(self.course_state.ramp_yaw) * self.RAMP_EXIT_OFFSET,
+                    self.course_state.ramp_coord.y
+                    + math.sin(self.course_state.ramp_yaw) * self.RAMP_EXIT_OFFSET,
+                )
+                return DogPos(coord, self.course_state.ramp_yaw)
+            case _:
+                raise ValueError(f"target has no magi sub-course: {target}")
+
+    def reset_subcourse(self, target: aux.DogModelTarget) -> StepState:
+        start = self.subcourse_start(target)
+
+        # Reset the dog and simulation clock without regenerating the course.
+        mujoco.mj_resetData(self.scene, self.data)
+        go2_joint = self.scene.joint("go2_joint")
+        go2_qadr = self.scene.jnt_qposadr[go2_joint.id]
+        self.data.qpos[go2_qadr + 0] = start.coord.x
+        self.data.qpos[go2_qadr + 1] = start.coord.y
+        self.data.qpos[go2_qadr + 3 : go2_qadr + 7] = [
+            math.cos(start.yaw / 2),
+            0,
+            0,
+            math.sin(start.yaw / 2),
+        ]
+
+        self.dog_pos = start
+        mujoco.mj_forward(self.scene, self.data)
+        self.cam_renderer.update_scene(
+            self.data,
+            camera="go2_camera",
+        )
+        self.step_state = StepState(
+            self.dog_pos,
+            self.cam_renderer.render(),
+            target,
+            self.MAX_STEPS,
+            False,
+            None,
+        )
+        return self.step_state
+
     def reset(self, rseed: int) -> tuple[StepState, CourseState]:
         self.rseed = rseed
         random.seed(self.rseed)
@@ -375,32 +462,20 @@ class TrainingSimulator:
 
             self.reset_course()
 
-        mujoco.mj_step(self.scene, self.data)
-
-        self.cam_renderer.update_scene(
-            self.data,
-            camera="go2_camera",
+        return (
+            self.reset_subcourse(aux.DogModelTarget.TUNNEL),
+            self.course_state,
         )
-
-        self.step_state = StepState(
-            self.dog_pos,
-            self.cam_renderer.render(),
-            aux.DogModelTarget.TUNNEL,
-            self.MAX_STEPS,
-            False,
-            None,
-        )
-
-        return (self.step_state, self.course_state)
 
     def step(self, action: aux.DogModelAction) -> StepState:
-        if self.step_state.remaining_steps > 0:
-            self.step_state.remaining_steps -= 1
-        else:
-            self.step_state.done = True
-
         if self.step_state.done:
             return self.step_state
+
+        if self.step_state.remaining_steps <= 0:
+            self.step_state.done = True
+            return self.step_state
+
+        self.step_state.remaining_steps -= 1
 
         match action:
             case aux.DogModelAction.FORWARD:
@@ -450,5 +525,19 @@ class TrainingSimulator:
 
         self.step_state.fb = self.cam_renderer.render()
         self.step_state.last_action = action
+        if self.step_state.remaining_steps == 0:
+            self.step_state.done = True
 
         return self.step_state
+
+    def step_subcourse(self, action: aux.DogModelAction) -> StepState:
+        target = self.step_state.target
+        magi_idx = aux.TARGET_TO_MAGI[target]
+        if action not in aux.MAGI_ACTIONS[magi_idx]:
+            raise ValueError(f"{action.name} is not available to magi {magi_idx}")
+
+        completed = action == aux.MAGI_ACTIONS[magi_idx][-1]
+        next_state = self.step(action)
+        if completed:
+            next_state.done = True
+        return next_state

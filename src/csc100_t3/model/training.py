@@ -2,225 +2,268 @@ from pathlib import Path
 from dataclasses import dataclass
 import copy
 import random
-import math
 
-from torchrl.data import ReplayBuffer, ListStorage
+import numpy as np
 import torch
+from torchrl.data import ListStorage, ReplayBuffer
 
 import csc100_t3.mjsim.tinterface as ti
-from csc100_t3.model import aux
-import csc100_t3.model.reward as rew
 import csc100_t3.model as model
+import csc100_t3.model.reward as rew
+from csc100_t3.model import aux
 
 NUM_EPISODES = 500
 MIN_EPSILON = 0.05
 EPSILON_DECAY = 0.995
 TARGET_UPDATE_INTERVAL = 10
 SAVE_INTERVAL = 10
+REPLAY_CAPACITY = 50_000
+BATCH_SIZE = 64
+LEARNING_RATE = 1e-4
+GAMMA = 0.99
 
 
 @dataclass
 class Transition:
     state: ti.StepState
-    course: ti.CourseState
     action: aux.DogModelAction
     reward: float
     next_state: ti.StepState
 
 
 def choose_action(
-    model: model.DogModel,
-    fb,
-    target,
-    last_action: aux.DogModelAction | None,
+    dog_model: model.DogModel,
+    magi_idx: int,
+    state: ti.StepState,
     epsilon: float,
 ) -> aux.DogModelAction:
+    actions = aux.MAGI_ACTIONS[magi_idx]
     if random.random() < epsilon:
-        return random.choice(list(aux.DogModelAction))
+        return random.choice(actions)
 
     with torch.no_grad():
-        q_values = model(fb, target, last_action)
+        q_values = dog_model(magi_idx, state.fb, state.last_action)
 
-    index = q_values.argmax().item()
+    return actions[q_values.argmax().item()]
 
-    return list(aux.DogModelAction)[index]
+
+def batch_inputs(
+    magi_idx: int,
+    states: list[ti.StepState],
+) -> tuple[np.ndarray, torch.Tensor]:
+    actions = aux.MAGI_ACTIONS[magi_idx]
+    frames = np.stack([state.fb for state in states])
+    last_action_indices = torch.tensor(
+        [
+            0 if state.last_action is None else actions.index(state.last_action) + 1
+            for state in states
+        ],
+        dtype=torch.long,
+    )
+    return frames, last_action_indices
 
 
 def train_step(
-    online_model,
-    target_model,
-    replay_buffer,
-    optimiser,
-    gamma: float,
-):
+    magi_idx: int,
+    online_model: model.DogModel,
+    target_model: model.DogModel,
+    replay_buffer: ReplayBuffer,
+    optimiser: torch.optim.Optimizer,
+) -> float | None:
     if len(replay_buffer) < replay_buffer.batch_size:
-        return
+        return None
 
     batch = replay_buffer.sample()
+    actions = aux.MAGI_ACTIONS[magi_idx]
+    frames, last_action_indices = batch_inputs(
+        magi_idx,
+        [transition.state for transition in batch],
+    )
+    q_values = online_model.forward_batch(
+        magi_idx,
+        frames,
+        last_action_indices,
+    )
+    action_indices = torch.tensor(
+        [actions.index(transition.action) for transition in batch],
+        dtype=torch.long,
+    )
+    predicted_q = q_values.gather(1, action_indices.unsqueeze(1)).squeeze(1)
 
-    losses = []
-
-    for transition in batch:
-        q_values = online_model(
-            transition.state.fb,
-            transition.state.target,
-            transition.state.last_action,
+    with torch.no_grad():
+        target_q = torch.tensor(
+            [transition.reward for transition in batch],
+            dtype=predicted_q.dtype,
         )
-
-        action_index = list(aux.DogModelAction).index(transition.action)
-
-        predicted_q = q_values[action_index]
-
-        with torch.no_grad():
-            if transition.next_state.done:
-                target_q = torch.tensor(
-                    transition.reward,
-                    dtype=predicted_q.dtype,
-                    device=predicted_q.device,
-                )
-            else:
-                next_online_q = online_model(
-                    transition.next_state.fb,
-                    transition.next_state.target,
-                    transition.next_state.last_action,
-                )
-
-                best_next_action = next_online_q.argmax()
-
-                next_target_q = target_model(
-                    transition.next_state.fb,
-                    transition.next_state.target,
-                    transition.next_state.last_action,
-                )
-
-                future_q = next_target_q[best_next_action]
-
-                target_q = transition.reward + gamma * future_q
-
-        losses.append(
-            torch.nn.functional.smooth_l1_loss(
-                predicted_q,
-                target_q,
+        nonterminal_indices = [
+            index
+            for index, transition in enumerate(batch)
+            if not transition.next_state.done
+        ]
+        if nonterminal_indices:
+            next_frames, next_last_actions = batch_inputs(
+                magi_idx,
+                [batch[index].next_state for index in nonterminal_indices],
             )
-        )
+            next_online_q = online_model.forward_batch(
+                magi_idx,
+                next_frames,
+                next_last_actions,
+            )
+            best_next_actions = next_online_q.argmax(dim=1, keepdim=True)
+            next_target_q = target_model.forward_batch(
+                magi_idx,
+                next_frames,
+                next_last_actions,
+            )
+            future_q = next_target_q.gather(1, best_next_actions).squeeze(1)
+            target_q[nonterminal_indices] += GAMMA * future_q
 
-    loss = torch.stack(losses).mean()
-
+    loss = torch.nn.functional.smooth_l1_loss(predicted_q, target_q)
     optimiser.zero_grad()
     loss.backward()
     optimiser.step()
-
     return loss.item()
 
 
 def save_checkpoint(
     model_dir: Path,
     episode: int,
-    online_model,
-    target_model,
-    optimiser,
-    epsilon: float,
+    online_model: model.DogModel,
+    target_model: model.DogModel,
+    optimisers: dict[int, torch.optim.Optimizer],
+    epsilons: dict[int, float],
 ):
     model_dir.mkdir(parents=True, exist_ok=True)
-
     path = model_dir / f"checkpoint_{episode:04d}.pt"
-
     torch.save(
         {
             "episode": episode,
             "online_model": online_model.state_dict(),
             "target_model": target_model.state_dict(),
-            "optimiser": optimiser.state_dict(),
-            "epsilon": epsilon,
+            "optimisers": {
+                magi_idx: optimiser.state_dict()
+                for magi_idx, optimiser in optimisers.items()
+            },
+            "epsilons": epsilons,
         },
         path,
     )
 
 
-def run_new(model_dir: Path):
-    replay_buffer = ReplayBuffer(
-        storage=ListStorage(max_size=50_000),
-        batch_size=64,
-        collate_fn=lambda x: x,
-    )
+def load_base_weights(
+    online_model: model.DogModel,
+    weights_path: Path,
+):
+    saved = torch.load(weights_path, map_location="cpu", weights_only=True)
+    state_dict = saved["online_model"] if "online_model" in saved else saved
+    online_model.load_state_dict(state_dict)
 
+
+def run_new(
+    model_dir: Path,
+    weights_path: Path | None = None,
+    train_magi: int | None = None,
+    starting_epsilon: float = 1.0,
+):
+    if train_magi is not None and not 0 <= train_magi < len(aux.MAGI_TARGETS):
+        raise ValueError(f"unknown magi index: {train_magi}")
+
+    magi_indices = (
+        tuple(range(len(aux.MAGI_TARGETS))) if train_magi is None else (train_magi,)
+    )
     online_model = model.DogModel()
+    if weights_path is not None:
+        load_base_weights(online_model, weights_path)
+
+    for magi_idx, magi in enumerate(online_model.magi):
+        magi.requires_grad_(magi_idx in magi_indices)
+
     target_model = copy.deepcopy(online_model)
     target_model.eval()
     target_model.requires_grad_(False)
 
-    optimiser = torch.optim.Adam(
-        online_model.parameters(),
-        lr=1e-4,
-    )
-
-    epsilon = 1.0
-    gamma = 0.99
+    replay_buffers = {
+        magi_idx: ReplayBuffer(
+            storage=ListStorage(max_size=REPLAY_CAPACITY),
+            batch_size=BATCH_SIZE,
+            collate_fn=lambda transitions: transitions,
+        )
+        for magi_idx in magi_indices
+    }
+    optimisers = {
+        magi_idx: torch.optim.Adam(
+            online_model.magi[magi_idx].parameters(),
+            lr=LEARNING_RATE,
+        )
+        for magi_idx in magi_indices
+    }
+    epsilons = {magi_idx: starting_epsilon for magi_idx in magi_indices}
 
     sim = ti.TrainingSimulator()
 
-    looked = [False] * int((2 * math.pi) / sim.MOV_R)
     for episode in range(NUM_EPISODES):
-        state, course = sim.reset(episode)
-        looked = [False] * int((2 * math.pi) / sim.MOV_R)
-        episode_reward = 0.0
+        _, generated_course = sim.reset(episode)
+        course = copy.deepcopy(generated_course)
 
-        while not state.done:
-            action = choose_action(
-                online_model,
-                state.fb,
-                state.target,
-                state.last_action,
-                epsilon,
-            )
+        for magi_idx in magi_indices:
+            target = aux.MAGI_TARGETS[magi_idx]
+            state = sim.reset_subcourse(target)
+            episode_reward = 0.0
+            loss = None
 
-            old_state = copy.deepcopy(state)
-
-            next_state = sim.step(action)
-            if old_state.target != next_state.target:
-                looked = [False] * int((2 * math.pi) / sim.MOV_R)
-
-            reward = rew.calculate_reward(
-                old_state,
-                next_state,
-                course,
-                action,
-                looked,
-                sim.MOV_R,
-                old_state.last_action,
-                sim.is_keepout_respected,
-            )
-
-            replay_buffer.add(
-                Transition(
-                    state=old_state,
-                    course=copy.deepcopy(course),
-                    action=action,
-                    reward=reward,
-                    next_state=copy.deepcopy(next_state),
+            while not state.done:
+                action = choose_action(
+                    online_model,
+                    magi_idx,
+                    state,
+                    epsilons[magi_idx],
                 )
+                old_state = copy.deepcopy(state)
+                next_state = sim.step_subcourse(action)
+                reward = rew.calculate_reward(
+                    old_state,
+                    next_state,
+                    course,
+                    action,
+                    sim.is_navigation_keepout_respected,
+                )
+
+                replay_buffers[magi_idx].add(
+                    Transition(
+                        state=old_state,
+                        action=action,
+                        reward=reward,
+                        next_state=copy.deepcopy(next_state),
+                    )
+                )
+                loss = train_step(
+                    magi_idx,
+                    online_model,
+                    target_model,
+                    replay_buffers[magi_idx],
+                    optimisers[magi_idx],
+                )
+                episode_reward += reward
+                state = next_state
+
+            epsilons[magi_idx] = max(
+                MIN_EPSILON,
+                epsilons[magi_idx] * EPSILON_DECAY,
+            )
+            print(
+                f"course={episode:05} magi={magi_idx} target={target.name:<6}  "
+                f"reward={episode_reward:03} "
+                f"epsilon={epsilons[magi_idx]:.3f} "
+                f"loss={loss}",
+                flush=True,
             )
 
-            loss = train_step(
-                online_model,
-                target_model,
-                replay_buffer,
-                optimiser,
-                gamma,
-            )
-
-            episode_reward += reward
-            state = next_state
-
-        epsilon = max(
-            MIN_EPSILON,
-            epsilon * EPSILON_DECAY,
-        )
-
-        if episode % TARGET_UPDATE_INTERVAL == 0:
-            target_model.load_state_dict(online_model.state_dict())
-
-        print(episode, episode_reward, epsilon, loss, flush=True)
+        if (episode + 1) % TARGET_UPDATE_INTERVAL == 0:
+            for magi_idx in magi_indices:
+                target_model.magi[magi_idx].load_state_dict(
+                    online_model.magi[magi_idx].state_dict()
+                )
 
         if (episode + 1) % SAVE_INTERVAL == 0:
             save_checkpoint(
@@ -228,6 +271,8 @@ def run_new(model_dir: Path):
                 episode + 1,
                 online_model,
                 target_model,
-                optimiser,
-                epsilon,
+                optimisers,
+                epsilons,
             )
+
+    sim.close()

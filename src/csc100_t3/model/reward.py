@@ -238,9 +238,6 @@ def calculate_reward(
     next_state: ti.StepState,
     course: ti.CourseState,
     action: aux.DogModelAction,
-    looked,
-    sim_mov_r,
-    previous_action: aux.DogModelAction | None,
-    ikr,
+    is_navigation_keepout_respected,
 ):
     return 0.0
