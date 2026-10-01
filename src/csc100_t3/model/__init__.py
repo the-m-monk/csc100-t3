@@ -9,11 +9,17 @@ class DogModel(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.magi = [
-            {"cnn": vision.DogVision(), "action_head": action_head.DogActionHead()},
-            {"cnn": vision.DogVision(), "action_head": action_head.DogActionHead()},
-            {"cnn": vision.DogVision(), "action_head": action_head.DogActionHead()},
-        ]
+        self.magi = nn.ModuleList(
+            [
+                nn.ModuleDict(
+                    {
+                        "cnn": vision.DogVision(),
+                        "action_head": action_head.DogActionHead(),
+                    }
+                )
+                for _ in aux.MAGI_TARGETS
+            ]
+        )
 
     def forward(
         self,

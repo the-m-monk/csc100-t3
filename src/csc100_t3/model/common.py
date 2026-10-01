@@ -36,3 +36,11 @@ class DogModelAction(IntEnum):
     TUNNEL = 5
     RAMP = 6
     FINISHED = 7
+
+# MAGI
+
+MAGI_TARGETS = (
+    DogModelTarget.TUNNEL,
+    DogModelTarget.RAMP,
+    DogModelTarget.TILE,
+)
