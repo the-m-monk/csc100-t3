@@ -52,18 +52,20 @@ def run(model_path: Path):
             now = time.monotonic()
 
             if now >= next_action_time:
+                magi_idx = aux.TARGET_TO_MAGI[state.target]
                 with torch.no_grad():
                     q_values = dog_model(
+                        magi_idx,
                         state.fb,
-                        state.target,
                         state.last_action,
                     )
 
                 action_index = q_values.argmax().item()
+                action = aux.MAGI_ACTIONS[magi_idx][action_index]
 
-                action = list(aux.DogModelAction)[action_index]
-
-                print(f"target={state.target.name} action={action.name}")
+                print(
+                    f"magi={magi_idx} target={state.target.name} action={action.name}"
+                )
 
                 state = sim.step(action)
 
@@ -77,3 +79,5 @@ def run(model_path: Path):
             viewer.sync()
 
             time.sleep(sim.scene.opt.timestep)
+
+    sim.close()
