@@ -1,4 +1,5 @@
 from enum import IntEnum
+import math
 
 # VISION
 
@@ -72,3 +73,13 @@ MAGI_ACTIONS = (
 
 MAGI_ACTION_COUNT = len(MAGI_ACTIONS[0])
 TARGET_TO_MAGI = {target: magi_idx for magi_idx, target in enumerate(MAGI_TARGETS)}
+
+RELATIVE_HEADING_BIN_COUNT = 8
+
+
+def relative_heading_bin(yaw: float, start_yaw: float) -> int:
+    bin_width = math.tau / RELATIVE_HEADING_BIN_COUNT
+    relative_yaw = (yaw - start_yaw) % math.tau
+    return int(math.floor((relative_yaw + bin_width / 2) / bin_width)) % (
+        RELATIVE_HEADING_BIN_COUNT
+    )

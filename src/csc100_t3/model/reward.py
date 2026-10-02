@@ -17,8 +17,8 @@ PROGRESS_DEADBAND = 0.005
 APPROACH_REWARD_SCALE = 7.0
 RETREAT_PENALTY_SCALE = 10.0
 
-EARLY_COMPLETION_PENALTY = -5.0
-COMPLETION_REWARD = 15.0
+EARLY_COMPLETION_PENALTY = -4.0
+COMPLETION_REWARD = 20.0
 ALIGNMENT_BONUS = 2.0
 
 TURN_REWARD_SCALE = 5.0
@@ -26,6 +26,7 @@ TURN_REWARD_SCALE = 5.0
 COLLISION_PENALTY = -10.0
 
 OSCILLATION_PENALTY = -0.25
+
 
 def distance(a: ti.Vec2, b: ti.Vec2) -> float:
     return math.hypot(a.x - b.x, a.y - b.y)
@@ -132,6 +133,7 @@ def completion_reward(
     alignment = 1.0 - abs(angle_diff(state.dog_pos.yaw, target_yaw)) / math.pi
     return COMPLETION_REWARD + ALIGNMENT_BONUS * max(0.0, alignment)
 
+
 def collision_penalty(is_navigation_keepout_respected, state, next_state, course):
     if not is_navigation_keepout_respected(
         next_state.dog_pos.coord,
@@ -140,6 +142,7 @@ def collision_penalty(is_navigation_keepout_respected, state, next_state, course
     ):
         return COLLISION_PENALTY
     return 0.0
+
 
 def oscillation_penalty(state, action):
     r = 0.0
@@ -152,6 +155,7 @@ def oscillation_penalty(state, action):
     if opposites.get(action) == state.last_action:
         r += OSCILLATION_PENALTY
     return r
+
 
 def calculate_reward(
     state: ti.StepState,

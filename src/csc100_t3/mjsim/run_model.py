@@ -58,6 +58,10 @@ def run(model_path: Path):
                         magi_idx,
                         state.fb,
                         state.last_action,
+                        aux.relative_heading_bin(
+                            state.dog_pos.yaw,
+                            state.start_yaw,
+                        ),
                     )
 
                 action_index = q_values.argmax().item()

@@ -42,7 +42,12 @@ def choose_action(
         return random.choice(actions)
 
     with torch.no_grad():
-        q_values = dog_model(magi_idx, state.fb, state.last_action)
+        q_values = dog_model(
+            magi_idx,
+            state.fb,
+            state.last_action,
+            aux.relative_heading_bin(state.dog_pos.yaw, state.start_yaw),
+        )
 
     return actions[q_values.argmax().item()]
 
@@ -50,7 +55,7 @@ def choose_action(
 def batch_inputs(
     magi_idx: int,
     states: list[ti.StepState],
-) -> tuple[np.ndarray, torch.Tensor]:
+) -> tuple[np.ndarray, torch.Tensor, torch.Tensor]:
     actions = aux.MAGI_ACTIONS[magi_idx]
     frames = np.stack([state.fb for state in states])
     last_action_indices = torch.tensor(
@@ -60,7 +65,14 @@ def batch_inputs(
         ],
         dtype=torch.long,
     )
-    return frames, last_action_indices
+    relative_heading_bins = torch.tensor(
+        [
+            aux.relative_heading_bin(state.dog_pos.yaw, state.start_yaw)
+            for state in states
+        ],
+        dtype=torch.long,
+    )
+    return frames, last_action_indices, relative_heading_bins
 
 
 def train_step(
@@ -75,7 +87,7 @@ def train_step(
 
     batch = replay_buffer.sample()
     actions = aux.MAGI_ACTIONS[magi_idx]
-    frames, last_action_indices = batch_inputs(
+    frames, last_action_indices, relative_heading_bins = batch_inputs(
         magi_idx,
         [transition.state for transition in batch],
     )
@@ -83,6 +95,7 @@ def train_step(
         magi_idx,
         frames,
         last_action_indices,
+        relative_heading_bins,
     )
     action_indices = torch.tensor(
         [actions.index(transition.action) for transition in batch],
@@ -101,7 +114,7 @@ def train_step(
             if not transition.next_state.done
         ]
         if nonterminal_indices:
-            next_frames, next_last_actions = batch_inputs(
+            next_frames, next_last_actions, next_relative_heading_bins = batch_inputs(
                 magi_idx,
                 [batch[index].next_state for index in nonterminal_indices],
             )
@@ -109,12 +122,14 @@ def train_step(
                 magi_idx,
                 next_frames,
                 next_last_actions,
+                next_relative_heading_bins,
             )
             best_next_actions = next_online_q.argmax(dim=1, keepdim=True)
             next_target_q = target_model.forward_batch(
                 magi_idx,
                 next_frames,
                 next_last_actions,
+                next_relative_heading_bins,
             )
             future_q = next_target_q.gather(1, best_next_actions).squeeze(1)
             target_q[nonterminal_indices] += GAMMA * future_q

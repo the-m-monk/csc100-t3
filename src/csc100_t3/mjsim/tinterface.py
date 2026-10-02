@@ -22,6 +22,7 @@ class StepState:
     remaining_steps: int
     done: bool
     last_action: aux.DogModelAction | None
+    start_yaw: float
 
 
 @dataclass
@@ -132,6 +133,7 @@ class TrainingSimulator:
             0,
             False,
             None,
+            0,
         )
 
         self.POST_OBSTACLE_GAP = 0.3
@@ -433,6 +435,7 @@ class TrainingSimulator:
             self.MAX_STEPS,
             False,
             None,
+            start.yaw,
         )
         return self.step_state
 
@@ -499,6 +502,7 @@ class TrainingSimulator:
                     self.course_state.tunnel_yaw,
                 )
                 self.step_state.target = aux.DogModelTarget.RAMP
+                self.step_state.start_yaw = self.dog_pos.yaw
             case aux.DogModelAction.RAMP:
                 self.set_go2_pos(
                     Vec2(
@@ -510,6 +514,7 @@ class TrainingSimulator:
                     self.course_state.ramp_yaw,
                 )
                 self.step_state.target = aux.DogModelTarget.TILE
+                self.step_state.start_yaw = self.dog_pos.yaw
             case aux.DogModelAction.FINISHED:
                 self.step_state.remaining_steps = 0
                 self.step_state.done = True

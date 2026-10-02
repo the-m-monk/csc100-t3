@@ -26,6 +26,7 @@ class DogModel(nn.Module):
         magi_idx: int,
         fb: np.ndarray,
         last_action: aux.DogModelAction | None,
+        relative_heading_bin: int,
     ) -> Tensor:
         if not 0 <= magi_idx < len(self.magi):
             raise ValueError(f"unknown magi index: {magi_idx}")
@@ -42,13 +43,18 @@ class DogModel(nn.Module):
 
         wm = self.magi[magi_idx]
 
-        return wm["action_head"](wm["cnn"](fb), last_action_index)
+        return wm["action_head"](
+            wm["cnn"](fb),
+            last_action_index,
+            relative_heading_bin,
+        )
 
     def forward_batch(
         self,
         magi_idx: int,
         frames: np.ndarray,
         last_action_indices: Tensor,
+        relative_heading_bins: Tensor,
     ) -> Tensor:
         if not 0 <= magi_idx < len(self.magi):
             raise ValueError(f"unknown magi index: {magi_idx}")
@@ -57,4 +63,5 @@ class DogModel(nn.Module):
         return wm["action_head"].forward_batch(
             wm["cnn"](frames),
             last_action_indices,
+            relative_heading_bins,
         )
