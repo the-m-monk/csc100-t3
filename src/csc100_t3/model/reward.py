@@ -20,6 +20,8 @@ RETREAT_PENALTY_SCALE = 12.0
 EARLY_COMPLETION_PENALTY_PER_METRE = -1.0
 EARLY_COMPLETION_WARMUP_EPISODES = 200
 EARLY_COMPLETION_WARMUP_SCALE = 0.2
+EARLY_COMPLETION_PROXIMITY_REWARD = 4.0
+EARLY_COMPLETION_PROXIMITY_RANGE = 4.0
 COMPLETION_REWARD = 20.0
 ALIGNMENT_BONUS = 2.0
 
@@ -145,15 +147,25 @@ def completion_reward(
     episode: int,
 ) -> float:
     if not in_completion_zone(state.dog_pos, state.target, course):
+        distance_from_zone = distance_to_completion_zone(
+            state.dog_pos,
+            state.target,
+            course,
+        )
         progress = min(episode / EARLY_COMPLETION_WARMUP_EPISODES, 1.0)
         penalty_scale = EARLY_COMPLETION_WARMUP_SCALE + progress * (
             1.0 - EARLY_COMPLETION_WARMUP_SCALE
         )
-        return (
+        penalty = (
             EARLY_COMPLETION_PENALTY_PER_METRE
-            * distance_to_completion_zone(state.dog_pos, state.target, course)
+            * distance_from_zone
             * penalty_scale
         )
+        proximity = max(
+            1.0 - distance_from_zone / EARLY_COMPLETION_PROXIMITY_RANGE,
+            0.0,
+        )
+        return penalty + EARLY_COMPLETION_PROXIMITY_REWARD * proximity
 
     _, target_yaw = target_pose(state.target, course)
     alignment = 1.0 - abs(angle_diff(state.dog_pos.yaw, target_yaw)) / math.pi
