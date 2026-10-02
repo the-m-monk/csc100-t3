@@ -252,8 +252,8 @@ def run_new(
                 epsilons[magi_idx] * EPSILON_DECAY,
             )
             print(
-                f"course={episode:05} magi={magi_idx} target={target.name:<6}  "
-                f"reward={episode_reward:03} "
+                f"course={episode:05} magi={magi_idx} target={target.name:<6} "
+                f"reward={episode_reward:03.5} "
                 f"epsilon={epsilons[magi_idx]:.3f} "
                 f"loss={loss}",
                 flush=True,
