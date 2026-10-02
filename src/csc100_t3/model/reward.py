@@ -95,7 +95,7 @@ def bearing_reward(state, next_state, course):
     )
     old_angle = abs(angle_diff(old_bearing, state.dog_pos.yaw))
     new_angle = abs(angle_diff(new_bearing, next_state.dog_pos.yaw))
-    reward += (old_angle - new_angle) * TURN_REWARD_SCALE
+    r += (old_angle - new_angle) * TURN_REWARD_SCALE
 
     return r
 
@@ -142,6 +142,7 @@ def collision_penalty(is_navigation_keepout_respected, state, next_state, course
     return 0.0
 
 def oscillation_penalty(state, action):
+    r = 0.0
     opposites = {
         aux.DogModelAction.FORWARD: aux.DogModelAction.BACKWARD,
         aux.DogModelAction.BACKWARD: aux.DogModelAction.FORWARD,
@@ -149,7 +150,8 @@ def oscillation_penalty(state, action):
         aux.DogModelAction.RIGHT: aux.DogModelAction.LEFT,
     }
     if opposites.get(action) == state.last_action:
-        reward += OSCILLATION_PENALTY
+        r += OSCILLATION_PENALTY
+    return r
 
 def calculate_reward(
     state: ti.StepState,
