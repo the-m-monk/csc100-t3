@@ -242,6 +242,7 @@ def run_new(
                     course,
                     action,
                     sim.is_navigation_keepout_respected,
+                    episode,
                 )
 
                 replay_buffers[magi_idx].add(

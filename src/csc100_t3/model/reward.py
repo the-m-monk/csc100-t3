@@ -15,9 +15,11 @@ COMPLETION_ZONE_DEPTH = 0.5
 PROGRESS_DEADBAND = 0.005
 
 APPROACH_REWARD_SCALE = 7.0
-RETREAT_PENALTY_SCALE = 10.0
+RETREAT_PENALTY_SCALE = 12.0
 
-EARLY_COMPLETION_PENALTY = -4.0
+EARLY_COMPLETION_PENALTY_PER_METRE = -1.0
+EARLY_COMPLETION_WARMUP_EPISODES = 200
+EARLY_COMPLETION_WARMUP_SCALE = 0.2
 COMPLETION_REWARD = 20.0
 ALIGNMENT_BONUS = 2.0
 
@@ -118,6 +120,21 @@ def in_completion_zone(
     )
 
 
+def distance_to_completion_zone(
+    dog_pos: ti.DogPos,
+    target: aux.DogModelTarget,
+    course: ti.CourseState,
+) -> float:
+    centre, yaw = completion_zone_centre(target, course)
+    dx = dog_pos.coord.x - centre.x
+    dy = dog_pos.coord.y - centre.y
+    longitudinal = dx * math.cos(yaw) + dy * math.sin(yaw)
+    lateral = -dx * math.sin(yaw) + dy * math.cos(yaw)
+    outside_longitudinal = max(abs(longitudinal) - COMPLETION_ZONE_DEPTH / 2, 0.0)
+    outside_lateral = max(abs(lateral) - COMPLETION_ZONE_WIDTH / 2, 0.0)
+    return math.hypot(outside_longitudinal, outside_lateral)
+
+
 def angle_diff(a: float, b: float) -> float:
     return (a - b + math.pi) % (2 * math.pi) - math.pi
 
@@ -125,9 +142,18 @@ def angle_diff(a: float, b: float) -> float:
 def completion_reward(
     state: ti.StepState,
     course: ti.CourseState,
+    episode: int,
 ) -> float:
     if not in_completion_zone(state.dog_pos, state.target, course):
-        return EARLY_COMPLETION_PENALTY
+        progress = min(episode / EARLY_COMPLETION_WARMUP_EPISODES, 1.0)
+        penalty_scale = EARLY_COMPLETION_WARMUP_SCALE + progress * (
+            1.0 - EARLY_COMPLETION_WARMUP_SCALE
+        )
+        return (
+            EARLY_COMPLETION_PENALTY_PER_METRE
+            * distance_to_completion_zone(state.dog_pos, state.target, course)
+            * penalty_scale
+        )
 
     _, target_yaw = target_pose(state.target, course)
     alignment = 1.0 - abs(angle_diff(state.dog_pos.yaw, target_yaw)) / math.pi
@@ -163,13 +189,14 @@ def calculate_reward(
     course: ti.CourseState,
     action: aux.DogModelAction,
     is_navigation_keepout_respected,
+    episode: int,
 ):
     r = 0.0
 
     magi_idx = aux.TARGET_TO_MAGI[state.target]
     completion_action = aux.MAGI_ACTIONS[magi_idx][-1]
     if action == completion_action:
-        return completion_reward(state, course)
+        return completion_reward(state, course, episode)
 
     r += distance_reward(state, next_state, course)
     r += bearing_reward(state, next_state, course)
