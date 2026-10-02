@@ -28,6 +28,15 @@ def epsilon_probability(value: str) -> float:
     return epsilon
 
 
+def mp4_output_path(value: str) -> Path:
+    path = Path(value)
+    if path.suffix.lower() != ".mp4":
+        raise argparse.ArgumentTypeError("recording path must end in .mp4")
+    if not path.parent.is_dir():
+        raise argparse.ArgumentTypeError("recording directory must exist")
+    return path
+
+
 def main():
     parser = argparse.ArgumentParser(prog="csc100_t3")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -58,6 +67,16 @@ def main():
 
     sim_run_model = sub.add_parser("sim_run_model")
     sim_run_model.add_argument("--path", type=Path, required=True)
+    sim_run_model.add_argument(
+        "--record",
+        type=mp4_output_path,
+        help="write a headless MP4 of policy input and action values",
+    )
+    sim_run_model.add_argument(
+        "--seed",
+        type=int,
+        help="course seed (random by default)",
+    )
 
     args = parser.parse_args()
 
@@ -88,4 +107,4 @@ def main():
         case "sim_run_model":
             import csc100_t3.mjsim.run_model as run_model
 
-            run_model.run(args.path)
+            run_model.run(args.path, record_path=args.record, seed=args.seed)

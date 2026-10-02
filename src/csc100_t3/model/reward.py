@@ -157,9 +157,7 @@ def completion_reward(
             1.0 - EARLY_COMPLETION_WARMUP_SCALE
         )
         penalty = (
-            EARLY_COMPLETION_PENALTY_PER_METRE
-            * distance_from_zone
-            * penalty_scale
+            EARLY_COMPLETION_PENALTY_PER_METRE * distance_from_zone * penalty_scale
         )
         proximity = max(
             1.0 - distance_from_zone / EARLY_COMPLETION_PROXIMITY_RANGE,
