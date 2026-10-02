@@ -1,6 +1,7 @@
 main2:
     modify reward for new 3 headed model system
     add multi-machine training if possible
+    add sim_run_model visualisation
 
 the chest is sometimes called block (whoops!), replace all "block" references with "chest"
 
